@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Member, GroupData } from '../types';
-import { UserPlus, Search, Phone, Calendar, CreditCard, Trash2, Edit, FileText, X, Percent, CheckCircle, ShieldAlert } from 'lucide-react';
+import { UserPlus, Search, Phone, Calendar, CreditCard, Trash2, Edit, FileText, X, Percent, CheckCircle, ShieldAlert, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import LoanLedger from './LoanLedger';
 
 interface MemberManagerProps {
@@ -18,6 +18,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
   const [adjustingMember, setAdjustingMember] = useState<Member | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLedgerMember, setSelectedLedgerMember] = useState<Member | null>(null);
+  const [sortDir, setSortDir] = useState<'none' | 'asc' | 'desc'>('none');
   
   const [formData, setFormData] = useState<Partial<Member>>({
     name: '',
@@ -71,10 +72,32 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
     setAdjustData({ rate: m.loanInterestRate, reason: 'Manual adjustment' });
   };
 
-  const filteredMembers = data.members.filter(m => 
-    m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    m.phone.includes(searchTerm)
-  );
+  const toggleSort = () => {
+    if (sortDir === 'none') setSortDir('asc');
+    else if (sortDir === 'asc') setSortDir('desc');
+    else setSortDir('none');
+  };
+
+  const sortedMembers = useMemo(() => {
+    let members = data.members.filter(m => 
+      m.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      m.phone.includes(searchTerm)
+    );
+
+    if (sortDir !== 'none') {
+      members = [...members].sort((a, b) => {
+        const nameA = a.name.toLowerCase();
+        const nameB = b.name.toLowerCase();
+        if (sortDir === 'asc') {
+          return nameA.localeCompare(nameB);
+        } else {
+          return nameB.localeCompare(nameA);
+        }
+      });
+    }
+
+    return members;
+  }, [data.members, searchTerm, sortDir]);
 
   return (
     <div className="space-y-6">
@@ -110,7 +133,17 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
         <table className="w-full text-left">
           <thead className="bg-slate-50 border-b">
             <tr>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Member Info</th>
+              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
+                <button 
+                  onClick={toggleSort}
+                  className="flex items-center gap-1.5 hover:text-slate-900 transition-colors group"
+                >
+                  Member Info
+                  {sortDir === 'none' && <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-100" />}
+                  {sortDir === 'asc' && <ArrowUp size={14} className="text-emerald-600" />}
+                  {sortDir === 'desc' && <ArrowDown size={14} className="text-emerald-600" />}
+                </button>
+              </th>
               <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Current Balance</th>
               <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Loan Cap</th>
               <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Interest</th>
@@ -118,7 +151,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
             </tr>
           </thead>
           <tbody className="divide-y">
-            {filteredMembers.map(member => (
+            {sortedMembers.map(member => (
               <tr key={member.id} className="hover:bg-slate-50/50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
@@ -167,6 +200,13 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
                 </td>
               </tr>
             ))}
+            {sortedMembers.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                  No members found matching your search.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -237,7 +277,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
               </button>
             </div>
             <div className="p-8 max-h-[85vh] overflow-y-auto">
-               <LoanLedger member={selectedLedgerMember} data={data} />
+               <LoanLedger member={selectedLedgerMember} data={data} onClose={() => setSelectedLedgerMember(null)} />
             </div>
           </div>
         </div>

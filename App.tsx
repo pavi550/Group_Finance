@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Member, PaymentRecord, GroupSettings, GroupData, AuthUser, LoanIssuedRecord, AdminPayment, MiscellaneousPayment, InterestRateChangeRecord, MeetingNote } from './types';
+import { Member, PaymentRecord, GroupSettings, GroupData, AuthUser, LoanIssuedRecord, AdminPayment, MiscellaneousPayment, InterestRateChangeRecord, MeetingNote, AppNotification } from './types';
 import Dashboard from './components/Dashboard';
 import MemberManager from './components/MemberManager';
 import PaymentForm from './components/PaymentForm';
@@ -10,6 +10,8 @@ import MiscPaymentForm from './components/MiscPaymentForm';
 import SummaryView from './components/SummaryView';
 import MeetingNotes from './components/MeetingNotes';
 import MonthlyReport from './components/MonthlyReport';
+import LoansList from './components/LoansList';
+import NotificationCenter from './components/NotificationCenter';
 import { 
   LayoutDashboard, 
   Users, 
@@ -36,7 +38,10 @@ import {
   ArrowLeft,
   Loader2,
   FileBarChart,
-  Home
+  Home,
+  RotateCcw,
+  ListFilter,
+  Bell
 } from 'lucide-react';
 
 const STORAGE_KEY = 'group_finance_data_v1';
@@ -60,7 +65,8 @@ const INITIAL_DATA: GroupData = {
   interestRateChanges: [],
   meetingNotes: [],
   adminPayments: [],
-  miscPayments: []
+  miscPayments: [],
+  notifications: []
 };
 
 const App: React.FC = () => {
@@ -73,6 +79,7 @@ const App: React.FC = () => {
     if (!parsed.meetingNotes) parsed.meetingNotes = [];
     if (!parsed.adminPayments) parsed.adminPayments = [];
     if (!parsed.miscPayments) parsed.miscPayments = [];
+    if (!parsed.notifications) parsed.notifications = [];
     if (parsed.settings && parsed.settings.dueDay === undefined) parsed.settings.dueDay = 10;
     
     // Member migration: ensure every member has a loanCap
@@ -98,8 +105,9 @@ const App: React.FC = () => {
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [resendTimer, setResendTimer] = useState(0);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'payments' | 'loans' | 'admin-pays' | 'misc-pays' | 'summary' | 'notes' | 'settings' | 'report'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'payments' | 'loans' | 'loans-list' | 'admin-pays' | 'misc-pays' | 'summary' | 'notes' | 'settings' | 'report' | 'notifications'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -114,17 +122,31 @@ const App: React.FC = () => {
     }
   }, [authUser]);
 
+  // Countdown timer effect
+  useEffect(() => {
+    let interval: number | undefined;
+    if (resendTimer > 0) {
+      interval = window.setInterval(() => {
+        setResendTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendTimer]);
+
   const handleLogout = () => {
     setAuthUser(null);
     setLoginPhone('');
     setOtpValue('');
     setLoginStep('PHONE');
     setLoginError(null);
+    setResendTimer(0);
     setActiveTab('dashboard');
   };
 
-  const handleSendOtp = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendOtp = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setLoginError(null);
 
     if (loginPhone.length !== 10) {
@@ -141,6 +163,7 @@ const App: React.FC = () => {
         setGeneratedOtp(newOtp);
         setLoginStep('OTP');
         setIsSendingOtp(false);
+        setResendTimer(60); // Start 60s countdown
         // In a real app, this would be sent via SMS. Here we log it.
         console.log(`[SIMULATION] OTP for ${loginPhone}: ${newOtp}`);
       }, 1200);
@@ -199,6 +222,9 @@ const App: React.FC = () => {
 
   const issueLoan = (memberId: string, amount: number, interestRate: number) => {
     if (authUser?.role !== 'ADMIN') return;
+    const member = data.members.find(m => m.id === memberId);
+    if (!member) return;
+
     const newLoan: LoanIssuedRecord = {
       id: Math.random().toString(36).substr(2, 9),
       memberId,
@@ -206,6 +232,15 @@ const App: React.FC = () => {
       interestRate,
       date: new Date().toISOString()
     };
+
+    const notification: AppNotification = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'LOAN_DISBURSED',
+      message: `A new loan of ₹${amount.toLocaleString()} has been disbursed to ${member.name}.`,
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+
     setData(prev => ({
       ...prev,
       members: prev.members.map(m => {
@@ -218,9 +253,23 @@ const App: React.FC = () => {
         }
         return m;
       }),
-      loansIssued: [...prev.loansIssued, newLoan]
+      loansIssued: [...prev.loansIssued, newLoan],
+      notifications: [notification, ...prev.notifications]
     }));
     setActiveTab('dashboard');
+  };
+
+  const markAllNotificationsRead = () => {
+    if (authUser?.role !== 'ADMIN') return;
+    setData(prev => ({
+      ...prev,
+      notifications: prev.notifications.map(n => ({ ...n, read: true }))
+    }));
+  };
+
+  const clearNotifications = () => {
+    if (authUser?.role !== 'ADMIN') return;
+    setData(prev => ({ ...prev, notifications: [] }));
   };
 
   const adjustInterestRate = (memberId: string, newRate: number, reason: string) => {
@@ -310,6 +359,7 @@ const App: React.FC = () => {
 
   // Auth Screen
   if (!authUser) {
+    // ... (Login UI remains same)
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-300 overflow-hidden relative">
@@ -347,7 +397,7 @@ const App: React.FC = () => {
                 </div>
 
                 <button 
-                  type="submit"
+                  type="submit" 
                   disabled={isSendingOtp}
                   className="w-full flex items-center justify-center gap-2 p-5 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 font-black disabled:opacity-70"
                 >
@@ -435,9 +485,24 @@ const App: React.FC = () => {
                   Confirm & Login
                 </button>
 
-                <p className="text-center text-xs text-slate-400 font-medium">
-                  Didn't receive the code? <button type="button" onClick={handleSendOtp} className="text-emerald-600 font-bold hover:underline">Resend OTP</button>
-                </p>
+                <div className="text-center text-xs text-slate-400 font-medium space-y-2">
+                  <p>Didn't receive the code?</p>
+                  {resendTimer > 0 ? (
+                    <div className="flex items-center justify-center gap-2 text-slate-500 font-bold bg-slate-50 py-2 px-4 rounded-full w-fit mx-auto border border-slate-100">
+                      <RotateCcw size={12} className="animate-spin-slow" />
+                      Resend in {resendTimer}s
+                    </div>
+                  ) : (
+                    <button 
+                      type="button" 
+                      onClick={() => handleSendOtp()} 
+                      className="text-emerald-600 font-black hover:bg-emerald-50 px-4 py-2 rounded-full transition-colors inline-flex items-center gap-1"
+                    >
+                      <RotateCcw size={14} />
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
               </form>
             </div>
           )}
@@ -461,7 +526,7 @@ const App: React.FC = () => {
       >
         <Icon size={20} />
         <span className="font-medium">{label}</span>
-        {badge ? (
+        {badge !== undefined && badge > 0 ? (
           <span className="ml-auto bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
             {badge}
           </span>
@@ -470,13 +535,7 @@ const App: React.FC = () => {
     );
   };
 
-  // Check for unread notes (published in last 3 days)
-  const unreadNotesCount = data.meetingNotes.filter(n => {
-    if (!n.publishedAt) return false;
-    const pubDate = new Date(n.publishedAt).getTime();
-    const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
-    return pubDate > threeDaysAgo;
-  }).length;
+  const unreadNotificationsCount = data.notifications.filter(n => !n.read).length;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -518,10 +577,12 @@ const App: React.FC = () => {
 
           <nav className="space-y-2 flex-1">
             <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
+            <NavItem id="notifications" icon={Bell} label="Notifications" hidden={!isAdmin} badge={unreadNotificationsCount} />
             <NavItem id="members" icon={Users} label="Group Members" hidden={!isAdmin} />
             <NavItem id="payments" icon={CircleDollarSign} label="Record Payment" hidden={!isAdmin} />
             <NavItem id="loans" icon={HandCoins} label="Issue Loan" hidden={!isAdmin} />
-            <NavItem id="notes" icon={MessageSquareText} label="Meeting Minutes" badge={!isAdmin ? unreadNotesCount : 0} />
+            <NavItem id="loans-list" icon={ListFilter} label="All Loans" hidden={!isAdmin} />
+            <NavItem id="notes" icon={MessageSquareText} label="Meeting Minutes" />
             <NavItem id="admin-pays" icon={UserCog} label="Admin Reward" hidden={!isAdmin} />
             <NavItem id="misc-pays" icon={Receipt} label="Misc Expense" hidden={!isAdmin} />
             <NavItem id="summary" icon={FileText} label={isAdmin ? "Group Summary" : "My History"} />
@@ -542,7 +603,22 @@ const App: React.FC = () => {
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
-          {activeTab === 'dashboard' && <Dashboard data={data} authUser={authUser} onOpenReport={() => setActiveTab('report')} />}
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+              data={data} 
+              authUser={authUser} 
+              onOpenReport={() => setActiveTab('report')} 
+              onUpdateSettings={updateSettings}
+              onNavigateToLoans={() => setActiveTab('loans-list')}
+            />
+          )}
+          {activeTab === 'notifications' && isAdmin && (
+            <NotificationCenter 
+              notifications={data.notifications} 
+              onMarkRead={markAllNotificationsRead} 
+              onClear={clearNotifications} 
+            />
+          )}
           {activeTab === 'members' && isAdmin && (
             <MemberManager data={data} onAdd={addMember} onUpdate={updateMember} onDelete={deleteMember} onAdjustInterest={adjustInterestRate} />
           )}
@@ -551,6 +627,9 @@ const App: React.FC = () => {
           )}
           {activeTab === 'loans' && isAdmin && (
             <LoanIssueForm members={data.members} settings={data.settings} onIssue={issueLoan} />
+          )}
+          {activeTab === 'loans-list' && isAdmin && (
+            <LoansList data={data} />
           )}
           {activeTab === 'notes' && (
             <MeetingNotes 
@@ -570,6 +649,7 @@ const App: React.FC = () => {
           {activeTab === 'summary' && <SummaryView data={data} authUser={authUser} />}
           {activeTab === 'report' && <MonthlyReport data={data} authUser={authUser} onBack={() => setActiveTab('dashboard')} />}
           {activeTab === 'settings' && isAdmin && (
+            // ... (Settings UI remains same)
             <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-2">
               <div className="bg-white rounded-3xl p-8 border shadow-sm">
                 <div className="flex items-center gap-3 mb-8">

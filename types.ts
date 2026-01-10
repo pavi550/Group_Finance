@@ -72,6 +72,14 @@ export interface MiscellaneousPayment {
   timestamp: string;
 }
 
+export interface AppNotification {
+  id: string;
+  type: 'LOAN_DISBURSED' | 'SYSTEM';
+  message: string;
+  timestamp: string;
+  read: boolean;
+}
+
 export interface GroupSettings {
   name: string;
   monthlySavingsAmount: number;
@@ -88,4 +96,5 @@ export interface GroupData {
   meetingNotes: MeetingNote[];
   adminPayments: AdminPayment[];
   miscPayments: MiscellaneousPayment[];
+  notifications: AppNotification[];
 }

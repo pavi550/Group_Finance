@@ -114,7 +114,7 @@ const LoanLedger: React.FC<LoanLedgerProps> = ({ member, data, onClose }) => {
                 <td className="px-6 py-4">
                   <div className={`flex items-center gap-2 text-xs font-bold ${
                     entry.type === 'DISBURSEMENT' ? 'text-amber-600' : 
-                    entry.type === 'REPAYMENT' ? 'text-emerald-600' : 'text-blue-600'
+                    entry.type === 'REPAYMENT' ? 'text-emerald-600' : 'text-indigo-600'
                   }`}>
                     {entry.type === 'DISBURSEMENT' ? <ArrowUpCircle size={14} /> : 
                      entry.type === 'REPAYMENT' ? <ArrowDownCircle size={14} /> : <Percent size={14} />}
@@ -127,7 +127,17 @@ const LoanLedger: React.FC<LoanLedgerProps> = ({ member, data, onClose }) => {
                     <p className="text-[10px] text-slate-400 font-medium">+ ₹{entry.interest} Interest Paid</p>
                   )}
                   {entry.meta && (
-                    <p className="text-[10px] text-blue-500 font-bold italic">Note: {entry.meta}</p>
+                    <div className={`mt-2 p-2 rounded-lg text-[10px] flex items-start gap-2 ${
+                      entry.type === 'RATE_ADJUST' ? 'bg-indigo-50 border border-indigo-100 text-indigo-700' : 'text-blue-500 italic'
+                    }`}>
+                      <Info size={12} className="shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-black uppercase tracking-tighter mr-1">
+                          {entry.type === 'RATE_ADJUST' ? 'Adjustment Reason:' : 'Note:'}
+                        </span>
+                        <span className="font-medium">{entry.meta}</span>
+                      </div>
+                    </div>
                   )}
                 </td>
                 <td className="px-6 py-4 text-right">
@@ -136,7 +146,7 @@ const LoanLedger: React.FC<LoanLedgerProps> = ({ member, data, onClose }) => {
                       {entry.type === 'DISBURSEMENT' ? '+' : '-'} ₹{entry.amount.toLocaleString()}
                     </span>
                   ) : (
-                    <span className="text-xs text-slate-300">Rate Update Only</span>
+                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Rate Policy Update</span>
                   )}
                 </td>
                 <td className="px-6 py-4 text-right text-sm font-black text-slate-900">

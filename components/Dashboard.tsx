@@ -1,14 +1,16 @@
 
 import React, { useMemo, useState } from 'react';
-import { GroupData, AuthUser, Member } from '../types';
+import { GroupData, AuthUser, Member, GroupSettings } from '../types';
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, Cell, PieChart, Pie, LineChart, Line, Legend
 } from 'recharts';
+// Fix: Added missing ListFilter icon import from lucide-react
 import { 
   Wallet, Landmark, Receipt, AlertCircle, Sparkles, UserCircle, X, 
   TrendingUp, BarChart3, ChevronRight, FileText, UserCog, Clock, 
-  AlertTriangle, CheckCircle2, FileBarChart 
+  AlertTriangle, CheckCircle2, FileBarChart, Edit2, Save, ArrowRight,
+  ListFilter
 } from 'lucide-react';
 import { getFinancialInsights } from '../services/geminiService';
 import LoanLedger from './LoanLedger';
@@ -17,12 +19,16 @@ interface DashboardProps {
   data: GroupData;
   authUser: AuthUser;
   onOpenReport: () => void;
+  onUpdateSettings: (settings: GroupSettings) => void;
+  onNavigateToLoans?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onUpdateSettings, onNavigateToLoans }) => {
   const [insights, setInsights] = useState<string | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [selectedLedgerMember, setSelectedLedgerMember] = useState<Member | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [newName, setNewName] = useState(data.settings.name);
   
   const isAdmin = authUser.role === 'ADMIN';
 
@@ -108,13 +114,31 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport }) =
     setLoadingInsights(false);
   };
 
+  const handleSaveName = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    onUpdateSettings({ ...data.settings, name: newName.trim() });
+    setIsRenaming(false);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-            {isAdmin ? 'Group Overview' : `Welcome, ${authUser.name}`}
-          </h2>
+        <div className="group relative">
+          <div className="flex items-center gap-3">
+            <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
+              {isAdmin ? data.settings.name : `Welcome, ${authUser.name}`}
+            </h2>
+            {isAdmin && (
+              <button 
+                onClick={() => { setNewName(data.settings.name); setIsRenaming(true); }}
+                className="p-2 bg-slate-100 text-slate-500 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity hover:bg-emerald-600 hover:text-white"
+                title="Rename Group"
+              >
+                <Edit2 size={16} />
+              </button>
+            )}
+          </div>
           <p className="text-slate-500 font-medium">
             {isAdmin ? 'Real-time group performance and savings growth.' : 'Your personal contributions and loan status.'}
           </p>
@@ -141,6 +165,46 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport }) =
           )}
         </div>
       </div>
+
+      {isRenaming && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-8 border-b bg-slate-50">
+              <h3 className="text-xl font-bold">Rename Group</h3>
+              <p className="text-slate-500 text-sm">Choose a new identifying name for your savings group.</p>
+            </div>
+            <form onSubmit={handleSaveName} className="p-8 space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">New Group Name</label>
+                <input 
+                  type="text" 
+                  autoFocus
+                  className="w-full p-4 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 outline-none transition-all font-bold text-lg"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Unity Savings Group"
+                />
+              </div>
+              <div className="flex gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setIsRenaming(false)}
+                  className="flex-1 py-4 font-bold text-slate-500 hover:bg-slate-100 rounded-2xl transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <Save size={18} />
+                  Update Name
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {insights && isAdmin && (
         <div className="bg-emerald-50 border border-emerald-100 rounded-3xl p-6 text-emerald-900 shadow-sm">
@@ -295,7 +359,18 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport }) =
         <div className="bg-white p-8 rounded-3xl border shadow-sm flex flex-col items-center text-center">
           {isAdmin ? (
             <>
-              <h3 className="text-xl font-bold mb-8 w-full text-left">Loan Portfolio</h3>
+              <div className="flex items-center justify-between w-full mb-8">
+                <h3 className="text-xl font-bold text-left">Loan Portfolio</h3>
+                {onNavigateToLoans && (
+                  <button 
+                    onClick={onNavigateToLoans}
+                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all group"
+                    title="View All Active Loans"
+                  >
+                    <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+                )}
+              </div>
               <div className="h-[200px] w-full relative">
                 {data.members.some(m => m.currentLoanPrincipal > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
@@ -328,6 +403,15 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport }) =
                   </button>
                 ))}
               </div>
+              {isAdmin && data.members.some(m => m.currentLoanPrincipal > 0) && (
+                <button 
+                  onClick={onNavigateToLoans}
+                  className="mt-6 w-full py-3 bg-slate-50 text-slate-600 hover:bg-slate-100 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                >
+                  <ListFilter size={14} />
+                  Detailed Loans Table
+                </button>
+              )}
             </>
           ) : (
             <div className="space-y-6 w-full">

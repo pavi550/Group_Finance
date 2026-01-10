@@ -1,10 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
-import { GroupData, AuthUser } from '../types';
-import { ArrowUpRight, TrendingUp, UserCog, History, Receipt } from 'lucide-react';
+import { GroupData, AuthUser, Member } from '../types';
+import { ArrowUpRight, TrendingUp, UserCog, History, Receipt, FileText, X } from 'lucide-react';
+import LoanLedger from './LoanLedger';
 
 const SummaryView: React.FC<{ data: GroupData; authUser: AuthUser }> = ({ data, authUser }) => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [selectedLedgerMember, setSelectedLedgerMember] = useState<Member | null>(null);
 
   const isAdmin = authUser.role === 'ADMIN';
 
@@ -45,9 +47,6 @@ const SummaryView: React.FC<{ data: GroupData; authUser: AuthUser }> = ({ data, 
       netMonthlyChange: collTotals.total - totalExp
     };
   }, [filteredRecords, filteredAdminPayments, filteredMiscPayments]);
-
-  const membersPaid = new Set(filteredRecords.map(r => r.memberId)).size;
-  const totalMembers = isAdmin ? data.members.length : 1;
 
   return (
     <div className="space-y-6">
@@ -98,7 +97,20 @@ const SummaryView: React.FC<{ data: GroupData; authUser: AuthUser }> = ({ data, 
                 const net = record.savings + record.principalPaid + record.interestPaid + record.penalty;
                 return (
                   <tr key={record.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 font-bold">{member?.name || 'Unknown'}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">{member?.name || 'Unknown'}</span>
+                        {isAdmin && member && (
+                          <button 
+                            onClick={() => setSelectedLedgerMember(member)}
+                            className="p-1 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded transition-all"
+                            title="View Statement"
+                          >
+                            <FileText size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-500">₹{record.savings}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">₹{record.principalPaid}</td>
                     <td className="px-6 py-4 text-sm text-slate-500">₹{record.interestPaid}</td>
@@ -153,6 +165,22 @@ const SummaryView: React.FC<{ data: GroupData; authUser: AuthUser }> = ({ data, 
                 ))}
               </tbody>
              </table>
+          </div>
+        </div>
+      )}
+
+      {/* Ledger Modal */}
+      {selectedLedgerMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 relative">
+            <div className="absolute right-6 top-6 z-10">
+               <button onClick={() => setSelectedLedgerMember(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+            <div className="p-8 max-h-[85vh] overflow-y-auto">
+               <LoanLedger member={selectedLedgerMember} data={data} onClose={() => setSelectedLedgerMember(null)} />
+            </div>
           </div>
         </div>
       )}
