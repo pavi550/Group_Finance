@@ -8,7 +8,7 @@ import {
 import { 
   Wallet, Landmark, Receipt, AlertCircle, Sparkles, UserCircle, X, 
   TrendingUp, BarChart3, ChevronRight, FileText, UserCog, Clock, 
-  AlertTriangle, CheckCircle2 
+  AlertTriangle, CheckCircle2, FileBarChart 
 } from 'lucide-react';
 import { getFinancialInsights } from '../services/geminiService';
 import LoanLedger from './LoanLedger';
@@ -16,9 +16,10 @@ import LoanLedger from './LoanLedger';
 interface DashboardProps {
   data: GroupData;
   authUser: AuthUser;
+  onOpenReport: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, authUser }) => {
+const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport }) => {
   const [insights, setInsights] = useState<string | null>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [selectedLedgerMember, setSelectedLedgerMember] = useState<Member | null>(null);
@@ -118,16 +119,25 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser }) => {
             {isAdmin ? 'Real-time group performance and savings growth.' : 'Your personal contributions and loan status.'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {isAdmin && (
-            <button 
-              onClick={handleGetInsights}
-              disabled={loadingInsights}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-emerald-200 transition-all disabled:opacity-50"
-            >
-              <Sparkles size={18} />
-              {loadingInsights ? 'Analyzing...' : 'AI Insights'}
-            </button>
+            <>
+              <button 
+                onClick={onOpenReport}
+                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-slate-900/10 transition-all"
+              >
+                <FileBarChart size={18} />
+                Financial Report
+              </button>
+              <button 
+                onClick={handleGetInsights}
+                disabled={loadingInsights}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-emerald-200 transition-all disabled:opacity-50"
+              >
+                <Sparkles size={18} />
+                {loadingInsights ? 'Analyzing...' : 'AI Insights'}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -357,14 +367,14 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser }) => {
       {/* Ledger Modal */}
       {selectedLedgerMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200 relative">
             <div className="absolute right-6 top-6 z-10">
                <button onClick={() => setSelectedLedgerMember(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
                 <X size={24} />
               </button>
             </div>
             <div className="p-8 max-h-[85vh] overflow-y-auto">
-               <LoanLedger member={selectedLedgerMember} data={data} />
+               <LoanLedger member={selectedLedgerMember} data={data} onClose={() => setSelectedLedgerMember(null)} />
             </div>
           </div>
         </div>

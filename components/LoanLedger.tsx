@@ -1,11 +1,12 @@
 
 import React, { useMemo } from 'react';
 import { GroupData, Member } from '../types';
-import { FileText, ArrowUpCircle, ArrowDownCircle, Info, Landmark, Percent } from 'lucide-react';
+import { FileText, ArrowUpCircle, ArrowDownCircle, Info, Landmark, Percent, X } from 'lucide-react';
 
 interface LoanLedgerProps {
   member: Member;
   data: GroupData;
+  onClose?: () => void;
 }
 
 interface LedgerEntry {
@@ -19,7 +20,7 @@ interface LedgerEntry {
   meta?: any;
 }
 
-const LoanLedger: React.FC<LoanLedgerProps> = ({ member, data }) => {
+const LoanLedger: React.FC<LoanLedgerProps> = ({ member, data, onClose }) => {
   const ledgerEntries = useMemo(() => {
     const memberLoans = data.loansIssued.filter(l => l.memberId === member.id);
     const memberRepayments = data.records.filter(r => r.memberId === member.id && r.principalPaid > 0);
@@ -153,12 +154,23 @@ const LoanLedger: React.FC<LoanLedgerProps> = ({ member, data }) => {
         </table>
       </div>
       
-      <div className="p-4 bg-slate-50 border-t flex items-start gap-3">
-        <Info size={16} className="text-slate-400 mt-0.5" />
-        <p className="text-[10px] leading-relaxed text-slate-500 font-medium">
-          Note: Monthly interest calculations are based on the principal at the time of collection. 
-          Interest payments do not reduce the outstanding principal balance. Adjustments to the interest rate take effect for future collection entries.
-        </p>
+      <div className="p-6 bg-slate-50 border-t flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-start gap-3">
+          <Info size={16} className="text-slate-400 mt-0.5 shrink-0" />
+          <p className="text-[10px] leading-relaxed text-slate-500 font-medium">
+            Note: Monthly interest calculations are based on the principal at the time of collection. 
+            Interest payments do not reduce the outstanding principal balance.
+          </p>
+        </div>
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition-all shadow-lg shadow-slate-900/10"
+          >
+            <X size={14} />
+            Close Statement
+          </button>
+        )}
       </div>
     </div>
   );

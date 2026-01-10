@@ -9,6 +9,7 @@ import AdminPaymentForm from './components/AdminPaymentForm';
 import MiscPaymentForm from './components/MiscPaymentForm';
 import SummaryView from './components/SummaryView';
 import MeetingNotes from './components/MeetingNotes';
+import MonthlyReport from './components/MonthlyReport';
 import { 
   LayoutDashboard, 
   Users, 
@@ -33,7 +34,9 @@ import {
   MessageSquareText,
   KeyRound,
   ArrowLeft,
-  Loader2
+  Loader2,
+  FileBarChart,
+  Home
 } from 'lucide-react';
 
 const STORAGE_KEY = 'group_finance_data_v1';
@@ -96,7 +99,7 @@ const App: React.FC = () => {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'payments' | 'loans' | 'admin-pays' | 'misc-pays' | 'summary' | 'notes' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'payments' | 'loans' | 'admin-pays' | 'misc-pays' | 'summary' | 'notes' | 'settings' | 'report'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -305,7 +308,7 @@ const App: React.FC = () => {
     setActiveTab('summary');
   };
 
-  // Auth Screen - Enhanced with OTP Flow
+  // Auth Screen
   if (!authUser) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -425,7 +428,7 @@ const App: React.FC = () => {
                 </div>
 
                 <button 
-                  type="submit"
+                  type="submit" 
                   disabled={otpValue.length !== 6}
                   className="w-full flex items-center justify-center gap-2 p-5 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 font-black disabled:opacity-50 disabled:grayscale"
                 >
@@ -478,10 +481,13 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
       <header className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-2">
+        <button 
+          onClick={() => setActiveTab('dashboard')}
+          className="flex items-center gap-2 hover:opacity-75 transition-opacity"
+        >
           <div className="bg-emerald-600 p-2 rounded-lg"><CircleDollarSign className="text-white" size={24} /></div>
           <h1 className="font-bold text-xl tracking-tight">{data.settings.name}</h1>
-        </div>
+        </button>
         <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600">
           {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -489,13 +495,16 @@ const App: React.FC = () => {
 
       <aside className={`fixed inset-0 z-40 bg-white border-r w-72 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 h-full flex flex-col">
-          <div className="hidden md:flex items-center gap-3 mb-10">
-            <div className="bg-emerald-600 p-2.5 rounded-xl"><CircleDollarSign className="text-white" size={28} /></div>
+          <button 
+            onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
+            className="hidden md:flex items-center gap-3 mb-10 hover:opacity-75 transition-opacity group text-left"
+          >
+            <div className="bg-emerald-600 p-2.5 rounded-xl group-hover:scale-110 transition-transform shadow-lg shadow-emerald-600/10"><CircleDollarSign className="text-white" size={28} /></div>
             <div>
               <h1 className="font-bold text-lg leading-none">{data.settings.name}</h1>
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Group Finance Pro</span>
             </div>
-          </div>
+          </button>
 
           <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
             <div className="flex items-center gap-3 mb-2">
@@ -533,7 +542,7 @@ const App: React.FC = () => {
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
-          {activeTab === 'dashboard' && <Dashboard data={data} authUser={authUser} />}
+          {activeTab === 'dashboard' && <Dashboard data={data} authUser={authUser} onOpenReport={() => setActiveTab('report')} />}
           {activeTab === 'members' && isAdmin && (
             <MemberManager data={data} onAdd={addMember} onUpdate={updateMember} onDelete={deleteMember} onAdjustInterest={adjustInterestRate} />
           )}
@@ -559,6 +568,7 @@ const App: React.FC = () => {
             <MiscPaymentForm onAdd={addMiscPayment} />
           )}
           {activeTab === 'summary' && <SummaryView data={data} authUser={authUser} />}
+          {activeTab === 'report' && <MonthlyReport data={data} authUser={authUser} onBack={() => setActiveTab('dashboard')} />}
           {activeTab === 'settings' && isAdmin && (
             <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-2">
               <div className="bg-white rounded-3xl p-8 border shadow-sm">
