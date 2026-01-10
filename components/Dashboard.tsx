@@ -50,6 +50,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
     const activeLoans = isAdmin
       ? data.members.reduce((acc, m) => acc + m.currentLoanPrincipal, 0)
       : data.members.find(m => m.id === authUser.memberId)?.currentLoanPrincipal || 0;
+
+    const activeLoanCount = isAdmin
+      ? data.members.filter(m => m.currentLoanPrincipal > 0).length
+      : (data.members.find(m => m.id === authUser.memberId)?.currentLoanPrincipal || 0) > 0 ? 1 : 0;
     
     const currentMonth = new Date().toISOString().slice(0, 7);
     const monthlyCollection = records
@@ -59,6 +63,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
     return {
       totalFunds: (totalSavings + totalInterest + totalPenalty + totalPrincipalReturned) - totalOutflow,
       activeLoans,
+      activeLoanCount,
       interestEarned: totalInterest,
       monthlyCollection,
       growthSavings: totalSavings,
@@ -371,6 +376,19 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
                   </button>
                 )}
               </div>
+
+              {/* Loan Summary Grid for Admin */}
+              <div className="grid grid-cols-2 gap-4 w-full mb-8 text-left">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 transition-all hover:bg-slate-100/50">
+                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Active Loans</span>
+                  <span className="text-2xl font-black text-slate-900">{stats.activeLoanCount}</span>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 transition-all hover:bg-slate-100/50">
+                  <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Principal</span>
+                  <span className="text-lg font-black text-emerald-600">₹{stats.activeLoans.toLocaleString()}</span>
+                </div>
+              </div>
+
               <div className="h-[200px] w-full relative">
                 {data.members.some(m => m.currentLoanPrincipal > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
