@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   Info,
   History,
-  ArrowUpRight
+  ArrowUpRight,
+  Download
 } from 'lucide-react';
 
 interface MonthlyReportProps {
@@ -72,6 +73,43 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ data, authUser, onBack })
     window.print();
   };
 
+  const exportToCSV = () => {
+    const headers = ['Member Name', 'Savings', 'Principal Paid', 'Interest Paid', 'Penalty', 'Total', 'Date Recorded'];
+    const rows = reportData.records.map(record => {
+      const member = data.members.find(m => m.id === record.memberId);
+      const total = record.savings + record.principalPaid + record.interestPaid + record.penalty;
+      return [
+        `"${member?.name || 'Unknown'}"`,
+        record.savings,
+        record.principalPaid,
+        record.interestPaid,
+        record.penalty,
+        total,
+        new Date(record.timestamp).toLocaleDateString()
+      ];
+    });
+
+    // Add Expenses to CSV
+    rows.push([]); // Empty row separator
+    rows.push(['EXPENSES - Category', 'Description', 'Amount', 'Date']);
+    reportData.adminPays.forEach(p => {
+      rows.push(['Admin Reward', `"${p.description}"`, p.amount, new Date(p.timestamp).toLocaleDateString()]);
+    });
+    reportData.miscPays.forEach(p => {
+      rows.push(['Misc Expense', `"${p.description}"`, p.amount, new Date(p.timestamp).toLocaleDateString()]);
+    });
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Group_Report_${selectedMonth}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
       {/* Header - Hidden on Print */}
@@ -94,13 +132,22 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ data, authUser, onBack })
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
           />
-          <button 
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-slate-900 text-white px-5 py-3 rounded-2xl hover:bg-slate-800 transition-all font-bold shadow-xl shadow-slate-900/10"
-          >
-            <Printer size={18} />
-            Print Report
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={exportToCSV}
+              className="flex items-center gap-2 bg-white border-2 border-slate-100 text-slate-600 px-5 py-3 rounded-2xl hover:bg-slate-50 transition-all font-bold shadow-sm"
+            >
+              <Download size={18} />
+              Export CSV
+            </button>
+            <button 
+              onClick={handlePrint}
+              className="flex items-center gap-2 bg-slate-900 text-white px-5 py-3 rounded-2xl hover:bg-slate-800 transition-all font-bold shadow-xl shadow-slate-900/10"
+            >
+              <Printer size={18} />
+              Print Report
+            </button>
+          </div>
         </div>
       </div>
 

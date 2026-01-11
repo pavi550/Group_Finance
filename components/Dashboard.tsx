@@ -5,12 +5,11 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, Cell, PieChart, Pie, LineChart, Line, Legend
 } from 'recharts';
-// Fix: Added missing ListFilter icon import from lucide-react
 import { 
   Wallet, Landmark, Receipt, AlertCircle, Sparkles, UserCircle, X, 
   TrendingUp, BarChart3, ChevronRight, FileText, UserCog, Clock, 
   AlertTriangle, CheckCircle2, FileBarChart, Edit2, Save, ArrowRight,
-  ListFilter
+  ListFilter, Download
 } from 'lucide-react';
 import { getFinancialInsights } from '../services/geminiService';
 import LoanLedger from './LoanLedger';
@@ -42,7 +41,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
     const totalPenalty = records.reduce((acc, r) => acc + r.penalty, 0);
     const totalPrincipalReturned = records.reduce((acc, r) => acc + r.principalPaid, 0);
     
-    // Total Expenses (Admin Rewards + Misc Payments)
     const totalAdminExpenses = data.adminPayments.reduce((acc, p) => acc + p.amount, 0);
     const totalMiscExpenses = data.miscPayments.reduce((acc, p) => acc + p.amount, 0);
     const totalOutflow = totalAdminExpenses + totalMiscExpenses;
@@ -126,6 +124,46 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
     setIsRenaming(false);
   };
 
+  const exportMasterData = () => {
+    if (!isAdmin) return;
+
+    const headers = ['Month', 'Member Name', 'Savings', 'Principal Paid', 'Interest Paid', 'Penalty', 'Total', 'Timestamp'];
+    const rows = data.records.map(r => {
+      const member = data.members.find(m => m.id === r.memberId);
+      const total = r.savings + r.principalPaid + r.interestPaid + r.penalty;
+      return [
+        r.month,
+        `"${member?.name || 'Deleted Member'}"`,
+        r.savings,
+        r.principalPaid,
+        r.interestPaid,
+        r.penalty,
+        total,
+        r.timestamp
+      ];
+    });
+
+    rows.push([]);
+    rows.push(['EXPENSE LOG']);
+    rows.push(['Type', 'Month', 'Description', 'Amount', 'Timestamp']);
+    data.adminPayments.forEach(p => {
+      rows.push(['Admin Reward', p.month, `"${p.description}"`, p.amount, p.timestamp]);
+    });
+    data.miscPayments.forEach(p => {
+      rows.push(['Misc Expense', p.month, `"${p.description}"`, p.amount, p.timestamp]);
+    });
+
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${data.settings.name}_Master_Export.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -151,6 +189,13 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
         <div className="flex flex-wrap gap-2">
           {isAdmin && (
             <>
+              <button 
+                onClick={exportMasterData}
+                className="flex items-center gap-2 bg-white border-2 border-slate-100 text-slate-600 px-6 py-3 rounded-2xl font-semibold shadow-sm hover:bg-slate-50 transition-all"
+              >
+                <Download size={18} />
+                Master Export
+              </button>
               <button 
                 onClick={onOpenReport}
                 className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-slate-900/10 transition-all"
