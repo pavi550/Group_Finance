@@ -87,6 +87,8 @@ export interface GroupSettings {
   defaultInterestRate: number;
   dueDay: number; // Day of month when payment is due (1-28)
   adminPassword?: string; // New field for custom admin password
+  initialGrowthSavings?: number; // Total savings before app usage
+  initialNetFunds?: number; // Liquid cash before app usage
 }
 
 export interface GroupData {

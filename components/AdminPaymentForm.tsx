@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { AdminPayment } from '../types';
-import { UserCog, CheckCircle, Info, Landmark } from 'lucide-react';
+// Fixed: Added missing ArrowRight icon to the import list
+import { UserCog, CheckCircle, Info, Landmark, Calendar, Sparkles, ArrowRight } from 'lucide-react';
 
 interface AdminPaymentFormProps {
   onAdd: (payment: AdminPayment) => void;
@@ -37,75 +38,83 @@ const AdminPaymentForm: React.FC<AdminPaymentFormProps> = ({ onAdd }) => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-2">
-      <div className="bg-white rounded-3xl border shadow-sm overflow-hidden">
-        <div className="p-8 border-b bg-slate-50">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-slate-900 p-2 rounded-xl text-white">
-              <UserCog size={24} />
-            </div>
-            <h2 className="text-2xl font-bold">Admin Work Reward</h2>
-          </div>
-          <p className="text-slate-500">Record payments made to the group administrator for their service.</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-8 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Processing Month</label>
-              <input 
-                required 
-                type="month" 
-                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-              />
+    <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden bento-card">
+        <div className="p-10 border-b bg-slate-900 text-white relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-10"><Sparkles size={80} /></div>
+          <div className="flex items-center gap-4 mb-2 relative z-10">
+            <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md">
+              <UserCog size={32} />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Duration (Months)</label>
+              <h2 className="text-3xl font-extrabold tracking-tight">Maintenance Reward</h2>
+              <p className="text-slate-400 font-medium">Log compensation for administrative services.</p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-10 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+             <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Processing Cycle</label>
+              <div className="relative">
+                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  required 
+                  type="month" 
+                  className="w-full p-4 pl-12 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all font-bold text-slate-900"
+                  value={month}
+                  onChange={(e) => setMonth(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Duration Period</label>
               <select 
-                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all font-bold text-slate-900 appearance-none"
                 value={periodMonths}
                 onChange={(e) => setPeriodMonths(Number(e.target.value))}
               >
-                <option value={1}>Monthly</option>
-                <option value={3}>Quarterly (3 months)</option>
-                <option value={6}>Half-Yearly (6 months)</option>
-                <option value={12}>Yearly (12 months)</option>
+                <option value={1}>Single Month</option>
+                <option value={3}>Quarterly (3 Months)</option>
+                <option value={6}>Half-Yearly (6 Months)</option>
+                <option value={12}>Annual (12 Months)</option>
               </select>
             </div>
             <div className="col-span-1 md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Total Payment Amount (₹)</label>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Total Compensation (₹)</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xl">₹</span>
                 <input 
                   required 
                   type="number" 
-                  placeholder="e.g. 2000"
-                  className="w-full p-3 pl-8 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+                  placeholder="0.00"
+                  className="w-full p-6 pl-12 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all font-black text-3xl text-slate-900"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
                 />
               </div>
             </div>
             <div className="col-span-1 md:col-span-2">
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Description / Note</label>
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-3 ml-1">Reference Note</label>
               <input 
                 type="text" 
-                className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-emerald-500"
-                placeholder="e.g. Annual admin fee 2024"
+                className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all font-bold text-slate-900"
+                placeholder="e.g. Service fee for the period ending Dec 2024"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
               />
             </div>
           </div>
 
-          <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 flex items-start gap-4">
-            <Landmark className="text-amber-600 shrink-0" size={20} />
+          <div className="bg-amber-50/50 p-6 rounded-3xl border border-amber-100 flex items-start gap-4">
+            <div className="bg-amber-100 p-2 rounded-xl text-amber-600 shrink-0">
+              <Landmark size={20} />
+            </div>
             <div>
-              <p className="text-sm text-amber-800 font-bold">Corpus Deduction</p>
-              <p className="text-xs text-amber-600 mt-0.5 leading-relaxed">
-                This amount will be deducted from the group's net liquid funds and recorded as an expense in the ledger.
+              <p className="text-sm text-amber-900 font-black uppercase tracking-tight">Ledger Impact</p>
+              <p className="text-xs text-amber-700 mt-1 leading-relaxed font-medium">
+                Submitting this will record a deduction from the group's net liquid cash. This is permanent and will reflect in the monthly audit report.
               </p>
             </div>
           </div>
@@ -113,23 +122,23 @@ const AdminPaymentForm: React.FC<AdminPaymentFormProps> = ({ onAdd }) => {
           <button 
             type="submit" 
             disabled={amount === '' || amount <= 0 || submitted}
-            className={`w-full py-4 rounded-2xl font-bold text-white transition-all flex items-center justify-center gap-2 ${
-              submitted ? 'bg-emerald-500 cursor-default' : 'bg-slate-900 hover:bg-slate-800 shadow-xl'
+            className={`w-full py-5 rounded-2xl font-black text-white transition-all flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] ${
+              submitted ? 'bg-emerald-600 shadow-emerald-100 cursor-default' : 'bg-slate-900 shadow-slate-200 hover:bg-black'
             }`}
           >
             {submitted ? (
-              <><CheckCircle size={20} /> Payment Recorded!</>
+              <><CheckCircle size={24} /> Reward Recorded!</>
             ) : (
-              'Confirm Admin Payment'
+              <>Record Admin Reward <ArrowRight size={24} /></>
             )}
           </button>
         </form>
       </div>
       
-      <div className="mt-8 p-6 bg-slate-100 rounded-2xl border border-slate-200 flex items-start gap-4">
-        <Info className="text-slate-400 shrink-0" size={20} />
-        <p className="text-xs text-slate-500 leading-relaxed font-medium">
-          Admin rewards are typically paid out of the group's interest earnings. Ensure the group consensus supports the payment amount and frequency.
+      <div className="mt-8 p-6 bg-white rounded-[2rem] border border-slate-100 flex items-start gap-4 shadow-sm">
+        <Info className="text-slate-300 shrink-0" size={20} />
+        <p className="text-xs text-slate-500 leading-relaxed font-semibold italic">
+          Best Practice: Rewards should be discussed during the monthly meeting and logged only after majority consensus. Ensure the corpus can support the payout without affecting loan liquidity.
         </p>
       </div>
     </div>

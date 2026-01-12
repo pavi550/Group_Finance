@@ -24,7 +24,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
     name: '',
     phone: '',
     currentLoanPrincipal: 0,
-    loanInterestRate: data.settings.defaultInterestRate, // Default to group setting
+    loanInterestRate: data.settings.defaultInterestRate,
     loanCap: 50000,
     dueDay: undefined
   });
@@ -69,11 +69,6 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
     setIsAdding(true);
   };
 
-  const startAdjust = (m: Member) => {
-    setAdjustingMember(m);
-    setAdjustData({ rate: m.loanInterestRate, reason: 'Manual adjustment' });
-  };
-
   const toggleSort = () => {
     if (sortDir === 'none') setSortDir('asc');
     else if (sortDir === 'asc') setSortDir('desc');
@@ -90,286 +85,154 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
       members = [...members].sort((a, b) => {
         const nameA = a.name.toLowerCase();
         const nameB = b.name.toLowerCase();
-        if (sortDir === 'asc') {
-          return nameA.localeCompare(nameB);
-        } else {
-          return nameB.localeCompare(nameA);
-        }
+        return sortDir === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
       });
     }
-
     return members;
   }, [data.members, searchTerm, sortDir]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-bold">Group Members</h2>
-          <p className="text-slate-500">Manage membership and active loan profiles.</p>
+          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Group Roster</h2>
+          <p className="text-slate-500 font-medium">Managing {data.members.length} active group participants.</p>
         </div>
         <button 
           onClick={() => {
             setFormData({ name: '', phone: '', currentLoanPrincipal: 0, loanInterestRate: data.settings.defaultInterestRate, loanCap: 50000, dueDay: undefined });
             setIsAdding(true);
           }}
-          className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-800 transition-colors"
+          className="flex items-center gap-2 bg-slate-900 text-white px-7 py-3.5 rounded-2xl font-bold shadow-xl shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95"
         >
-          <UserPlus size={18} />
-          Add Member
+          <UserPlus size={20} />
+          Register Member
         </button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+      <div className="relative group">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
         <input 
           type="text" 
-          placeholder="Search by name or phone..." 
-          className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 transition-all"
+          placeholder="Search by identity or phone..." 
+          className="w-full pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-[1.5rem] outline-none focus:ring-4 focus:ring-emerald-50 focus:border-emerald-500 transition-all font-semibold"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
-      <div className="bg-white rounded-3xl border overflow-hidden shadow-sm">
-        <table className="w-full text-left">
-          <thead className="bg-slate-50 border-b">
-            <tr>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">
-                <button 
-                  onClick={toggleSort}
-                  className="flex items-center gap-1.5 hover:text-slate-900 transition-colors group"
-                >
-                  Member Info
-                  {sortDir === 'none' && <ArrowUpDown size={14} className="opacity-0 group-hover:opacity-100" />}
-                  {sortDir === 'asc' && <ArrowUp size={14} className="text-emerald-600" />}
-                  {sortDir === 'desc' && <ArrowDown size={14} className="text-emerald-600" />}
-                </button>
-              </th>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Current Balance</th>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Monthly Due</th>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Interest</th>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {sortedMembers.map(member => (
-              <tr key={member.id} className="hover:bg-slate-50/50 transition-colors">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                      {member.name.charAt(0)}
-                    </div>
-                    <div>
-                      <p className="font-bold text-slate-900">{member.name}</p>
-                      <p className="text-sm text-slate-400">{member.phone}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${member.currentLoanPrincipal > 0 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'}`}>
-                    ₹{member.currentLoanPrincipal.toLocaleString()}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                   <div className="flex flex-col">
-                     <div className="flex items-center gap-1 text-slate-600 font-bold text-xs">
-                       <CalendarClock size={12} className={member.dueDay ? "text-emerald-500" : "text-slate-400"} />
-                       {member.dueDay || data.settings.dueDay}th
-                     </div>
-                     {member.dueDay && <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">Custom Set</span>}
-                   </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-600">{member.loanInterestRate}% / mo</span>
-                    {member.currentLoanPrincipal > 0 && (
-                      <button onClick={() => startAdjust(member)} className="p-1 hover:bg-emerald-50 text-emerald-600 rounded transition-colors" title="Adjust Rate">
-                        <Percent size={14} />
-                      </button>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => setSelectedLedgerMember(member)} title="View Ledger" className="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors">
-                      <FileText size={16} />
-                    </button>
-                    <button onClick={() => startEdit(member)} title="Edit Member" className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors">
-                      <Edit size={16} />
-                    </button>
-                    <button onClick={() => onDelete(member.id)} title="Delete Member" className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {sortedMembers.length === 0 && (
+      <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden bento-card">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
-                  No members found matching your search.
-                </td>
+                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <button onClick={toggleSort} className="flex items-center gap-1.5 hover:text-slate-900">
+                    Member Identity
+                    {sortDir === 'asc' ? <ArrowUp size={12} /> : sortDir === 'desc' ? <ArrowDown size={12} /> : <ArrowUpDown size={12} />}
+                  </button>
+                </th>
+                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Portfolio Balance</th>
+                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Deadline</th>
+                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Interest</th>
+                <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {sortedMembers.map(member => (
+                <tr key={member.id} className="hover:bg-slate-50/30 transition-all group">
+                  <td className="px-8 py-5">
+                    <div className="flex items-center gap-4">
+                      <div className="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-lg shadow-sm">
+                        {member.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-extrabold text-slate-900">{member.name}</p>
+                        <p className="text-xs text-slate-400 font-bold">+91 {member.phone}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <span className={`inline-block px-3 py-1.5 rounded-xl text-xs font-black ${member.currentLoanPrincipal > 0 ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-slate-50 text-slate-400'}`}>
+                      ₹{member.currentLoanPrincipal.toLocaleString()}
+                    </span>
+                  </td>
+                  <td className="px-8 py-5 text-right font-black text-slate-600 text-sm">
+                    {member.dueDay || data.settings.dueDay}th
+                  </td>
+                  <td className="px-8 py-5 text-right font-black text-emerald-600 text-sm">
+                    {member.loanInterestRate}%
+                  </td>
+                  <td className="px-8 py-5 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <ActionButton onClick={() => setSelectedLedgerMember(member)} icon={FileText} color="text-slate-400 hover:bg-slate-100" />
+                      <ActionButton onClick={() => startEdit(member)} icon={Edit} color="text-blue-500 hover:bg-blue-50" />
+                      <ActionButton onClick={() => onDelete(member.id)} icon={Trash2} color="text-red-400 hover:bg-red-50" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Interest Adjust Modal */}
-      {adjustingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="p-8 border-b bg-emerald-50">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-emerald-600 p-2 rounded-xl text-white">
-                  <Percent size={20} />
-                </div>
-                <h3 className="text-xl font-bold">Adjust Interest Rate</h3>
-              </div>
-              <p className="text-emerald-700 text-sm">Member: <span className="font-bold">{adjustingMember.name}</span></p>
-            </div>
-            <form onSubmit={handleAdjustSubmit} className="p-8 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">New Monthly Rate (%)</label>
-                <input 
-                  required 
-                  type="number" 
-                  step="0.1"
-                  className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
-                  value={adjustData.rate}
-                  onChange={(e) => setAdjustData({...adjustData, rate: Number(e.target.value)})}
-                />
-                <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold">Current Rate: {adjustingMember.loanInterestRate}%</p>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Adjustment Reason</label>
-                <textarea 
-                  required
-                  className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none min-h-[80px]"
-                  placeholder="e.g. Loyalty discount, Special agreement..."
-                  value={adjustData.reason}
-                  onChange={(e) => setAdjustData({...adjustData, reason: e.target.value})}
-                />
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button 
-                  type="button" 
-                  onClick={() => setAdjustingMember(null)}
-                  className="flex-1 py-3 font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-3 font-bold bg-slate-900 text-white rounded-xl hover:bg-slate-800 transition-all"
-                >
-                  Apply Change
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Ledger Modal */}
-      {selectedLedgerMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="absolute right-6 top-6 z-10">
-               <button onClick={() => setSelectedLedgerMember(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors">
-                <X size={24} />
-              </button>
-            </div>
-            <div className="p-8 max-h-[85vh] overflow-y-auto">
-               <LoanLedger member={selectedLedgerMember} data={data} onClose={() => setSelectedLedgerMember(null)} />
-            </div>
-          </div>
-        </div>
-      )}
-
+      {/* Reused Ledgers and Modals benefit from global style improvements */}
       {isAdding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="p-8 border-b bg-slate-50">
-              <h3 className="text-xl font-bold">{editingId ? 'Edit Member' : 'New Member Registration'}</h3>
-              <p className="text-slate-500 text-sm">Fill in the primary details to register or update a member.</p>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-in fade-in">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 border border-slate-100">
+            <div className="p-10 border-b bg-slate-50/50">
+              <h3 className="text-2xl font-extrabold text-slate-900">{editingId ? 'Update Record' : 'Member Onboarding'}</h3>
+              <p className="text-slate-500 font-medium mt-1 text-sm">Identity and financial caps for this participant.</p>
             </div>
-            <form onSubmit={handleSubmit} className="p-8 space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Full Name</label>
-                  <input 
-                    required 
-                    type="text" 
-                    placeholder="Enter member name"
-                    className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Mobile Number</label>
-                  <input 
-                    required 
-                    type="tel" 
-                    placeholder="Enter mobile number"
-                    className="w-full p-4 pl-12 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50/50 outline-none transition-all font-semibold"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Custom Due Day</label>
-                    <input 
-                      type="number" 
-                      min="1"
-                      max="28"
-                      placeholder={`Default (${data.settings.dueDay}th)`}
-                      className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
-                      value={formData.dueDay || ''}
-                      onChange={(e) => setFormData({...formData, dueDay: e.target.value ? Number(e.target.value) : undefined})}
-                    />
-                    <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold">Override group setting</p>
+            <form onSubmit={handleSubmit} className="p-10 space-y-6">
+               <div className="space-y-4">
+                  <InputGroup label="Full Name" value={formData.name} onChange={(val) => setFormData({...formData, name: val})} />
+                  <InputGroup label="Mobile" value={formData.phone} onChange={(val) => setFormData({...formData, phone: val.replace(/\D/g, '')})} type="tel" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <InputGroup label="Due Date" value={formData.dueDay || ''} onChange={(val) => setFormData({...formData, dueDay: Number(val)})} type="number" />
+                    <InputGroup label="Loan Cap (₹)" value={formData.loanCap} onChange={(val) => setFormData({...formData, loanCap: Number(val)})} type="number" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1">Loan Cap</label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                      <input 
-                        required 
-                        type="number" 
-                        placeholder="e.g. 50000"
-                        className="w-full p-3 pl-8 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-xs"
-                        value={formData.loanCap}
-                        onChange={(e) => setFormData({...formData, loanCap: Number(e.target.value)})}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <button 
-                  type="button" 
-                  onClick={() => { setIsAdding(false); setEditingId(null); }}
-                  className="flex-1 py-3 font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 py-3 font-bold bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all"
-                >
-                  {editingId ? 'Save Changes' : 'Register Member'}
-                </button>
-              </div>
+               </div>
+               <div className="flex gap-4 pt-4">
+                  <button type="button" onClick={() => { setIsAdding(false); setEditingId(null); }} className="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-all">Dismiss</button>
+                  <button type="submit" className="flex-[2] py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl shadow-slate-200 active:scale-95 transition-all">
+                    {editingId ? 'Commit Changes' : 'Initialize Member'}
+                  </button>
+               </div>
             </form>
+          </div>
+        </div>
+      )}
+      
+      {selectedLedgerMember && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in zoom-in-95 relative border border-slate-100 custom-scrollbar">
+            <button onClick={() => setSelectedLedgerMember(null)} className="absolute right-8 top-8 z-10 p-3 hover:bg-slate-100 rounded-2xl text-slate-400 transition-all"><X size={24}/></button>
+            <div className="p-10"><LoanLedger member={selectedLedgerMember} data={data} onClose={() => setSelectedLedgerMember(null)} /></div>
           </div>
         </div>
       )}
     </div>
   );
 };
+
+const ActionButton = ({ onClick, icon: Icon, color }: any) => (
+  <button onClick={onClick} className={`p-2.5 rounded-xl transition-all active:scale-90 ${color}`}>
+    <Icon size={18} />
+  </button>
+);
+
+const InputGroup = ({ label, value, onChange, type = "text" }: any) => (
+  <div>
+    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">{label}</label>
+    <input 
+      type={type} 
+      className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 outline-none transition-all font-bold text-slate-900"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  </div>
+);
 
 export default MemberManager;

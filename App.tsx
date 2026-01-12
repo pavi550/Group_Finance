@@ -5,8 +5,7 @@ import Dashboard from './components/Dashboard';
 import MemberManager from './components/MemberManager';
 import PaymentForm from './components/PaymentForm';
 import LoanIssueForm from './components/LoanIssueForm';
-import AdminPaymentForm from './components/AdminPaymentForm';
-import MiscPaymentForm from './components/MiscPaymentForm';
+import ExpenseManager from './components/ExpenseManager';
 import SummaryView from './components/SummaryView';
 import MeetingNotes from './components/MeetingNotes';
 import MonthlyReport from './components/MonthlyReport';
@@ -47,7 +46,10 @@ import {
   Target,
   PlusCircle,
   Trash2,
-  UserCog
+  UserCog,
+  Database,
+  Sparkles,
+  Key
 } from 'lucide-react';
 
 const STORAGE_KEY = 'group_finance_data_v1';
@@ -57,8 +59,11 @@ const INITIAL_DATA: GroupData = {
   settings: {
     name: 'Unity Savings Group',
     monthlySavingsAmount: 1000,
-    defaultInterestRate: 12, // Updated from 2 to 12
-    dueDay: 10
+    defaultInterestRate: 12,
+    dueDay: 10,
+    initialGrowthSavings: 0,
+    initialNetFunds: 0,
+    adminPassword: 'admin'
   },
   members: [
     { id: '1', name: 'John Doe', phone: '9876543210', joiningDate: '2023-01-01', currentLoanPrincipal: 0, loanInterestRate: 12, loanCap: 50000 },
@@ -80,7 +85,6 @@ const App: React.FC = () => {
   const [data, setData] = useState<GroupData>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     const parsed = saved ? JSON.parse(saved) : INITIAL_DATA;
-    // Migrations
     if (!parsed.loansIssued) parsed.loansIssued = [];
     if (!parsed.interestRateChanges) parsed.interestRateChanges = [];
     if (!parsed.meetingNotes) parsed.meetingNotes = [];
@@ -89,15 +93,15 @@ const App: React.FC = () => {
     if (!parsed.notifications) parsed.notifications = [];
     if (!parsed.monthlySavingsTargets) parsed.monthlySavingsTargets = {};
     if (parsed.settings && parsed.settings.dueDay === undefined) parsed.settings.dueDay = 10;
+    if (parsed.settings && parsed.settings.initialGrowthSavings === undefined) parsed.settings.initialGrowthSavings = 0;
+    if (parsed.settings && parsed.settings.initialNetFunds === undefined) parsed.settings.initialNetFunds = 0;
     
-    // Member migration: ensure every member has a loanCap
     if (parsed.members) {
       parsed.members = parsed.members.map((m: any) => ({
         ...m,
-        loanCap: m.loanCap !== undefined ? m.loanCap : 50000 // default 50k if missing
+        loanCap: m.loanCap !== undefined ? m.loanCap : 50000
       }));
     }
-
     return parsed;
   });
 
@@ -106,7 +110,6 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // Login States
   const [loginPhone, setLoginPhone] = useState('');
   const [loginStep, setLoginStep] = useState<'PHONE' | 'OTP' | 'ADMIN_LOGIN'>('PHONE');
   const [otpValue, setOtpValue] = useState('');
@@ -114,20 +117,13 @@ const App: React.FC = () => {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
-
-  // Admin Login States
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPass, setShowAdminPass] = useState(false);
-
-  // Password Change State
   const [newAdminPass, setNewAdminPass] = useState('');
-
-  // Monthly Target Schedule States
   const [targetMonth, setTargetMonth] = useState(new Date().toISOString().slice(0, 7));
   const [targetAmount, setTargetAmount] = useState<number>(data.settings.monthlySavingsAmount);
-
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'payments' | 'loans' | 'loans-list' | 'admin-pays' | 'misc-pays' | 'summary' | 'notes' | 'settings' | 'report' | 'notifications'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'payments' | 'loans' | 'loans-list' | 'expenses' | 'summary' | 'notes' | 'settings' | 'report' | 'notifications'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -142,7 +138,6 @@ const App: React.FC = () => {
     }
   }, [authUser]);
 
-  // Countdown timer effect
   useEffect(() => {
     let interval: number | undefined;
     if (resendTimer > 0) {
@@ -150,78 +145,59 @@ const App: React.FC = () => {
         setResendTimer((prev) => prev - 1);
       }, 1000);
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    return () => { if (interval) clearInterval(interval); };
   }, [resendTimer]);
 
   const handleLogout = () => {
     setAuthUser(null);
-    setLoginPhone('');
-    setOtpValue('');
-    setAdminUsername('');
-    setAdminPassword('');
     setLoginStep('PHONE');
     setLoginError(null);
-    setResendTimer(0);
     setActiveTab('dashboard');
   };
 
   const handleSendOtp = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setLoginError(null);
-
     if (loginPhone.length !== 10) {
       setLoginError('Please enter a valid 10-digit mobile number.');
       return;
     }
-
     const member = data.members.find(m => m.phone === loginPhone);
     if (member) {
       setIsSendingOtp(true);
-      // Simulate SMS delay
       setTimeout(() => {
         const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
         setGeneratedOtp(newOtp);
         setLoginStep('OTP');
         setIsSendingOtp(false);
-        setResendTimer(60); // Start 60s countdown
-        // In a real app, this would be sent via SMS. Here we log it.
-        console.log(`[SIMULATION] OTP for ${loginPhone}: ${newOtp}`);
+        setResendTimer(60);
       }, 1200);
     } else {
-      setLoginError('Mobile number not found. Please contact the administrator.');
+      setLoginError('Mobile number not found. Contact Admin.');
     }
   };
 
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-
     if (otpValue === generatedOtp) {
       const member = data.members.find(m => m.phone === loginPhone);
       if (member) {
-        setAuthUser({
-          id: member.id,
-          name: member.name,
-          role: 'MEMBER',
-          memberId: member.id
-        });
+        setAuthUser({ id: member.id, name: member.name, role: 'MEMBER', memberId: member.id });
       }
     } else {
-      setLoginError('Invalid OTP. Please try again.');
+      setLoginError('Invalid OTP.');
     }
   };
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-
     const savedPass = data.settings.adminPassword || 'admin';
     if (adminUsername === 'admin' && adminPassword === savedPass) {
       setAuthUser({ id: 'admin-0', name: 'Administrator', role: 'ADMIN' });
     } else {
-      setLoginError('Invalid administrator credentials.');
+      setLoginError('Invalid credentials.');
     }
   };
 
@@ -232,22 +208,19 @@ const App: React.FC = () => {
 
   const handleUpdateAdminPassword = () => {
     if (!newAdminPass.trim() || newAdminPass.length < 4) {
-      alert("Password must be at least 4 characters long.");
+      alert("Password must be at least 4 characters.");
       return;
     }
     updateSettings({ ...data.settings, adminPassword: newAdminPass.trim() });
     setNewAdminPass('');
-    alert("Administrator password updated successfully. Please remember it for your next login.");
+    alert("Admin password updated successfully.");
   };
 
   const setMonthlySavingsTarget = (month: string, amount: number) => {
     if (authUser?.role !== 'ADMIN') return;
     setData(prev => ({
       ...prev,
-      monthlySavingsTargets: {
-        ...prev.monthlySavingsTargets,
-        [month]: amount
-      }
+      monthlySavingsTargets: { ...prev.monthlySavingsTargets, [month]: amount }
     }));
   };
 
@@ -300,7 +273,7 @@ const App: React.FC = () => {
     const notification: AppNotification = {
       id: Math.random().toString(36).substr(2, 9),
       type: 'LOAN_DISBURSED',
-      message: `A new loan of ₹${amount.toLocaleString()} has been disbursed to ${member.name}.`,
+      message: `₹${amount.toLocaleString()} issued to ${member.name}.`,
       timestamp: new Date().toISOString(),
       read: false
     };
@@ -359,10 +332,7 @@ const App: React.FC = () => {
 
   const addMeetingNote = (note: MeetingNote) => {
     if (authUser?.role !== 'ADMIN') return;
-    setData(prev => ({
-      ...prev,
-      meetingNotes: [note, ...prev.meetingNotes]
-    }));
+    setData(prev => ({ ...prev, meetingNotes: [note, ...prev.meetingNotes] }));
   };
 
   const publishMeetingNote = (id: string) => {
@@ -377,10 +347,7 @@ const App: React.FC = () => {
 
   const deleteMeetingNote = (id: string) => {
     if (authUser?.role !== 'ADMIN') return;
-    setData(prev => ({
-      ...prev,
-      meetingNotes: prev.meetingNotes.filter(n => n.id !== id)
-    }));
+    setData(prev => ({ ...prev, meetingNotes: prev.meetingNotes.filter(n => n.id !== id) }));
   };
 
   const addRecord = (record: PaymentRecord) => {
@@ -395,58 +362,49 @@ const App: React.FC = () => {
         }
         return m;
       });
-      return {
-        ...prev,
-        members: updatedMembers,
-        records: [...prev.records, record]
-      };
+      return { ...prev, members: updatedMembers, records: [...prev.records, record] };
     });
   };
 
   const addAdminPayment = (payment: AdminPayment) => {
     if (authUser?.role !== 'ADMIN') return;
-    setData(prev => ({
-      ...prev,
-      adminPayments: [...prev.adminPayments, payment]
-    }));
-    setActiveTab('summary');
+    setData(prev => ({ ...prev, adminPayments: [...prev.adminPayments, payment] }));
   };
 
   const addMiscPayment = (payment: MiscellaneousPayment) => {
     if (authUser?.role !== 'ADMIN') return;
-    setData(prev => ({
-      ...prev,
-      miscPayments: [...prev.miscPayments, payment]
-    }));
-    setActiveTab('summary');
+    setData(prev => ({ ...prev, miscPayments: [...prev.miscPayments, payment] }));
   };
 
-  // Auth Screen
   if (!authUser) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-300 overflow-hidden relative">
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Background blobs for depth */}
+        <div className="absolute top-0 -left-20 w-72 h-72 bg-emerald-600/20 rounded-full blur-[100px] animate-pulse"></div>
+        <div className="absolute bottom-0 -right-20 w-80 h-80 bg-blue-600/10 rounded-full blur-[120px] animate-pulse delay-700"></div>
+        
+        <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-500 overflow-hidden relative z-10 border border-white/20">
           
           {loginStep === 'PHONE' && (
             <div className="animate-in slide-in-from-left-4 duration-300">
               <div className="text-center mb-10">
-                <div className="bg-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-900/20">
+                <div className="bg-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-900/30">
                   <CircleDollarSign className="text-white" size={32} />
                 </div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Group Finance Pro</h1>
-                <p className="text-slate-500 font-medium mt-1">Enter your mobile to get OTP</p>
+                <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Finance Pro</h1>
+                <p className="text-slate-500 font-medium mt-1">Access your group dashboard</p>
               </div>
 
               <form onSubmit={handleSendOtp} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Member Mobile Number</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Member Mobile</label>
                   <div className="relative group">
                     <Smartphone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} />
                     <input 
                       type="tel"
                       maxLength={10}
-                      placeholder="Enter 10-digit number"
-                      className="w-full p-4 pl-12 rounded-2xl border-2 border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50/50 outline-none transition-all font-semibold"
+                      placeholder="10-digit number"
+                      className="w-full p-4 pl-12 rounded-2xl border border-slate-100 bg-slate-50/50 focus:bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 outline-none transition-all font-semibold"
                       value={loginPhone}
                       onChange={(e) => setLoginPhone(e.target.value.replace(/\D/g, ''))}
                     />
@@ -462,37 +420,31 @@ const App: React.FC = () => {
                 <button 
                   type="submit" 
                   disabled={isSendingOtp}
-                  className="w-full flex items-center justify-center gap-2 p-5 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 font-black disabled:opacity-70"
+                  className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 active:scale-[0.98] transition-all shadow-xl shadow-slate-900/10 font-bold disabled:opacity-70"
                 >
                   {isSendingOtp ? (
-                    <>
-                      <Loader2 size={20} className="animate-spin" />
-                      Sending OTP...
-                    </>
+                    <Loader2 size={20} className="animate-spin" />
                   ) : (
-                    <>
-                      Send OTP
-                      <ArrowRight size={20} />
-                    </>
+                    <>Send Code <ArrowRight size={20} /></>
                   )}
                 </button>
               </form>
 
               <div className="relative py-8">
                 <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
-                <div className="relative flex justify-center text-xs uppercase font-bold tracking-widest text-slate-300 bg-white px-2">OR</div>
+                <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest text-slate-300 bg-white px-3">OR</div>
               </div>
 
               <button 
                 onClick={() => setLoginStep('ADMIN_LOGIN')}
-                className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-100 hover:border-emerald-600 hover:bg-emerald-50 transition-all group"
+                className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-white hover:border-emerald-200 hover:bg-emerald-50/30 active:scale-[0.98] transition-all group"
               >
-                <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                  <ShieldCheck size={24} />
+                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                  <ShieldCheck size={20} />
                 </div>
                 <div className="text-left">
-                  <p className="font-bold text-slate-900">Administrator Login</p>
-                  <p className="text-xs text-slate-400 font-medium">Secure access with credentials</p>
+                  <p className="font-bold text-slate-900 text-sm">Administrator</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">Full system access</p>
                 </div>
               </button>
             </div>
@@ -502,70 +454,55 @@ const App: React.FC = () => {
             <div className="animate-in slide-in-from-right-4 duration-300">
               <button 
                 onClick={() => setLoginStep('PHONE')}
-                className="mb-6 flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold text-sm transition-colors"
+                className="mb-6 flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold text-xs transition-colors"
               >
-                <ArrowLeft size={16} />
-                Back to Mobile
+                <ArrowLeft size={14} /> Back
               </button>
 
               <div className="text-center mb-8">
                 <div className="bg-emerald-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <KeyRound className="text-emerald-600" size={32} />
                 </div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Verify Identity</h1>
-                <p className="text-slate-500 font-medium mt-1">We've sent a 6-digit code to <span className="text-slate-900 font-bold">+91 {loginPhone}</span></p>
+                <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Identity Verification</h1>
+                <p className="text-slate-500 font-medium mt-1">Verification code sent to <span className="text-slate-900 font-bold">...{loginPhone.slice(-4)}</span></p>
               </div>
 
               <form onSubmit={handleVerifyOtp} className="space-y-6">
-                <div>
-                  <div className="relative group">
-                    <input 
-                      type="tel"
-                      maxLength={6}
-                      autoFocus
-                      placeholder="Enter 6-digit OTP"
-                      className="w-full p-5 text-center text-3xl tracking-[1rem] rounded-2xl border-2 border-slate-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50/50 outline-none transition-all font-black"
-                      value={otpValue}
-                      onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
-                    />
-                  </div>
+                <div className="relative">
+                  <input 
+                    type="tel"
+                    maxLength={6}
+                    autoFocus
+                    placeholder="000 000"
+                    className="w-full p-5 text-center text-3xl tracking-[0.5rem] rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:border-emerald-500 outline-none transition-all font-black"
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, ''))}
+                  />
                   {loginError && (
                     <div className="mt-3 flex justify-center items-center gap-2 text-red-500 text-xs font-bold animate-in slide-in-from-top-1">
-                      <AlertCircle size={14} />
-                      {loginError}
+                      <AlertCircle size={14} /> {loginError}
                     </div>
                   )}
                 </div>
 
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-center">
-                  <p className="text-[10px] text-amber-700 font-black uppercase tracking-widest mb-1">Demo Simulation</p>
-                  <p className="text-xs font-bold text-amber-900">Use OTP: <span className="bg-white px-2 py-0.5 rounded-lg border border-amber-200">{generatedOtp}</span></p>
+                <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 text-center">
+                  <p className="text-[10px] text-emerald-700 font-black uppercase tracking-widest mb-1">Demo Code</p>
+                  <p className="text-sm font-bold text-emerald-900 tracking-widest">{generatedOtp}</p>
                 </div>
 
                 <button 
                   type="submit" 
                   disabled={otpValue.length !== 6}
-                  className="w-full flex items-center justify-center gap-2 p-5 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-600/20 font-black disabled:opacity-50 disabled:grayscale"
+                  className="w-full p-4 rounded-2xl bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-xl shadow-emerald-200 font-bold disabled:opacity-50"
                 >
-                  Confirm & Login
+                  Verify & Continue
                 </button>
 
-                <div className="text-center text-xs text-slate-400 font-medium space-y-2">
-                  <p>Didn't receive the code?</p>
+                <div className="text-center text-xs text-slate-400 font-medium">
                   {resendTimer > 0 ? (
-                    <div className="flex items-center justify-center gap-2 text-slate-500 font-bold bg-slate-50 py-2 px-4 rounded-full w-fit mx-auto border border-slate-100">
-                      <RotateCcw size={12} className="animate-spin-slow" />
-                      Resend in {resendTimer}s
-                    </div>
+                    <span className="font-bold text-slate-500">Resend in {resendTimer}s</span>
                   ) : (
-                    <button 
-                      type="button" 
-                      onClick={() => handleSendOtp()} 
-                      className="text-emerald-600 font-black hover:bg-emerald-50 px-4 py-2 rounded-full transition-colors inline-flex items-center gap-1"
-                    >
-                      <RotateCcw size={14} />
-                      Resend OTP
-                    </button>
+                    <button type="button" onClick={() => handleSendOtp()} className="text-emerald-600 font-black hover:underline">Resend OTP</button>
                   )}
                 </div>
               </form>
@@ -576,43 +513,35 @@ const App: React.FC = () => {
             <div className="animate-in slide-in-from-bottom-4 duration-300">
               <button 
                 onClick={() => setLoginStep('PHONE')}
-                className="mb-6 flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold text-sm transition-colors"
+                className="mb-6 flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold text-xs transition-colors"
               >
-                <ArrowLeft size={16} />
-                Back to Mobile
+                <ArrowLeft size={14} /> Back
               </button>
 
-              <div className="text-center mb-10">
-                <div className="bg-slate-900 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-slate-900/20">
+              <div className="text-center mb-8">
+                <div className="bg-slate-900 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-slate-900/30">
                   <Lock className="text-white" size={32} />
                 </div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Admin Authentication</h1>
-                <p className="text-slate-500 font-medium mt-1">Enter your credentials to manage the group</p>
+                <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Admin Console</h1>
               </div>
 
-              <form onSubmit={handleAdminLogin} className="space-y-6">
+              <form onSubmit={handleAdminLogin} className="space-y-5">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Username</label>
-                  <div className="relative group">
-                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-900 transition-colors" size={20} />
-                    <input 
-                      type="text"
-                      placeholder="Enter admin username"
-                      className="w-full p-4 pl-12 rounded-2xl border-2 border-slate-100 focus:border-slate-900 outline-none transition-all font-semibold"
-                      value={adminUsername}
-                      onChange={(e) => setAdminUsername(e.target.value)}
-                    />
-                  </div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Username</label>
+                  <input 
+                    type="text"
+                    className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all font-semibold"
+                    value={adminUsername}
+                    onChange={(e) => setAdminUsername(e.target.value)}
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-2">Password</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Password</label>
                   <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-900 transition-colors" size={20} />
                     <input 
                       type={showAdminPass ? "text" : "password"}
-                      placeholder="Enter admin password"
-                      className="w-full p-4 pl-12 rounded-2xl border-2 border-slate-100 focus:border-slate-900 outline-none transition-all font-semibold"
+                      className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:border-slate-900 outline-none transition-all font-semibold"
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                     />
@@ -621,28 +550,16 @@ const App: React.FC = () => {
                       onClick={() => setShowAdminPass(!showAdminPass)}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
-                      {showAdminPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                      {showAdminPass ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
-                  {loginError && (
-                    <div className="mt-3 flex items-center gap-2 text-red-500 text-xs font-bold animate-in slide-in-from-top-1">
-                      <AlertCircle size={14} />
-                      {loginError}
-                    </div>
-                  )}
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Standard Credentials</p>
-                  <p className="text-xs font-bold text-slate-600">User: <span className="text-slate-900">admin</span> | Pass: <span className="text-slate-900">admin</span></p>
                 </div>
 
                 <button 
                   type="submit" 
-                  className="w-full flex items-center justify-center gap-2 p-5 rounded-2xl bg-slate-900 text-white hover:bg-black transition-all shadow-xl shadow-slate-900/10 font-black"
+                  className="w-full p-4 rounded-2xl bg-slate-900 text-white hover:bg-black active:scale-[0.98] transition-all shadow-xl shadow-slate-900/10 font-bold"
                 >
-                  Verify Credentials
-                  <ShieldCheck size={20} />
+                  Confirm Credentials
                 </button>
               </form>
             </div>
@@ -656,22 +573,25 @@ const App: React.FC = () => {
 
   const NavItem = ({ id, icon: Icon, label, hidden = false, badge }: { id: typeof activeTab, icon: any, label: string, hidden?: boolean, badge?: number }) => {
     if (hidden) return null;
+    const isActive = activeTab === id;
     return (
       <button
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-          activeTab === id 
-          ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-200' 
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group ${
+          isActive 
+          ? 'bg-slate-900 text-white shadow-lg shadow-slate-200' 
           : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
         }`}
       >
-        <Icon size={20} />
-        <span className="font-medium">{label}</span>
+        <div className={`p-2 rounded-xl transition-colors ${isActive ? 'bg-slate-800' : 'bg-transparent group-hover:bg-white'}`}>
+          <Icon size={18} />
+        </div>
+        <span className={`font-semibold text-sm ${isActive ? 'translate-x-0.5' : ''} transition-transform`}>{label}</span>
         {badge !== undefined && badge > 0 ? (
-          <span className="ml-auto bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
+          <span className="ml-auto bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center ring-2 ring-white">
             {badge}
           </span>
-        ) : activeTab === id && <ChevronRight size={16} className="ml-auto" />}
+        ) : isActive && <ChevronRight size={14} className="ml-auto text-slate-400" />}
       </button>
     );
   };
@@ -680,70 +600,67 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
-      <header className="md:hidden bg-white border-b px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <button 
-          onClick={() => setActiveTab('dashboard')}
-          className="flex items-center gap-2 hover:opacity-75 transition-opacity"
-        >
-          <div className="bg-emerald-600 p-2 rounded-lg"><CircleDollarSign className="text-white" size={24} /></div>
-          <h1 className="font-bold text-xl tracking-tight">{data.settings.name}</h1>
+      <header className="md:hidden glass-panel px-4 py-4 flex items-center justify-between sticky top-0 z-50">
+        <button onClick={() => setActiveTab('dashboard')} className="flex items-center gap-2">
+          <div className="bg-emerald-600 p-2 rounded-xl shadow-lg shadow-emerald-200">
+            <CircleDollarSign className="text-white" size={20} />
+          </div>
+          <h1 className="font-extrabold text-lg tracking-tight text-slate-900">{data.settings.name}</h1>
         </button>
-        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-slate-600">
+        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 bg-white rounded-xl shadow-sm text-slate-600">
           {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </header>
 
-      <aside className={`fixed inset-0 z-40 bg-white border-r w-72 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-6 h-full flex flex-col">
-          <button 
-            onClick={() => { setActiveTab('dashboard'); setIsSidebarOpen(false); }}
-            className="hidden md:flex items-center gap-3 mb-10 hover:opacity-75 transition-opacity group text-left"
-          >
-            <div className="bg-emerald-600 p-2.5 rounded-xl group-hover:scale-110 transition-transform shadow-lg shadow-emerald-600/10"><CircleDollarSign className="text-white" size={28} /></div>
+      <aside className={`fixed inset-0 z-[60] glass-panel w-72 transform transition-transform duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] md:relative md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:bg-white md:border-r`}>
+        <div className="p-8 h-full flex flex-col">
+          <div className="hidden md:flex items-center gap-3 mb-10">
+            <div className="bg-slate-900 p-2.5 rounded-2xl shadow-xl shadow-slate-200">
+              <CircleDollarSign className="text-white" size={24} />
+            </div>
             <div>
-              <h1 className="font-bold text-lg leading-none">{data.settings.name}</h1>
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Group Finance Pro</span>
+              <h1 className="font-extrabold text-base tracking-tight leading-none text-slate-900">{data.settings.name}</h1>
+              <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1 block">Pro Version</span>
             </div>
-          </button>
-
-          <div className="mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <div className="flex items-center gap-3 mb-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isAdmin ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                {isAdmin ? <ShieldCheck size={16} /> : <UserIcon size={16} />}
-              </div>
-              <p className="font-bold text-sm text-slate-900 truncate">{authUser.name}</p>
-            </div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{authUser.role}</p>
           </div>
 
-          <nav className="space-y-2 flex-1">
+          <div className="mb-8 p-4 bg-slate-50/50 rounded-[1.5rem] border border-slate-100">
+            <div className="flex items-center gap-3 mb-1">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-sm ${isAdmin ? 'bg-slate-900 text-white' : 'bg-emerald-100 text-emerald-600'}`}>
+                {isAdmin ? <ShieldCheck size={16} /> : <UserIcon size={16} />}
+              </div>
+              <p className="font-bold text-xs text-slate-900 truncate">{authUser.name}</p>
+            </div>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-11">{authUser.role}</p>
+          </div>
+
+          <nav className="space-y-1.5 flex-1 overflow-y-auto pr-2 custom-scrollbar">
             <NavItem id="dashboard" icon={LayoutDashboard} label="Dashboard" />
-            <NavItem id="notifications" icon={Bell} label="Notifications" hidden={!isAdmin} badge={unreadNotificationsCount} />
-            <NavItem id="members" icon={Users} label="Group Members" hidden={!isAdmin} />
-            <NavItem id="payments" icon={CircleDollarSign} label="Record Payment" hidden={!isAdmin} />
-            <NavItem id="loans" icon={HandCoins} label="Issue Loan" hidden={!isAdmin} />
-            <NavItem id="loans-list" icon={ListFilter} label="All Loans" hidden={!isAdmin} />
-            <NavItem id="notes" icon={MessageSquareText} label="Meeting Minutes" />
-            <NavItem id="admin-pays" icon={UserCog} label="Admin Reward" hidden={!isAdmin} />
-            <NavItem id="misc-pays" icon={Receipt} label="Misc Expense" hidden={!isAdmin} />
-            <NavItem id="summary" icon={FileText} label={isAdmin ? "Group Summary" : "My History"} />
+            <NavItem id="notifications" icon={Bell} label="Alerts" hidden={!isAdmin} badge={unreadNotificationsCount} />
+            <NavItem id="members" icon={Users} label="Membership" hidden={!isAdmin} />
+            <NavItem id="payments" icon={CircleDollarSign} label="Collections" hidden={!isAdmin} />
+            <NavItem id="loans" icon={HandCoins} label="Credit Ops" hidden={!isAdmin} />
+            <NavItem id="loans-list" icon={ListFilter} label="Portfolio" hidden={!isAdmin} />
+            <NavItem id="expenses" icon={Receipt} label="Expense Log" hidden={!isAdmin} />
+            <NavItem id="notes" icon={MessageSquareText} label="Minutes" />
+            <NavItem id="summary" icon={FileText} label={isAdmin ? "Reports" : "My History"} />
           </nav>
 
-          <div className="pt-6 border-t mt-auto space-y-2">
-            <NavItem id="settings" icon={Settings} label="Settings" hidden={!isAdmin} />
+          <div className="pt-6 border-t mt-auto space-y-1.5">
+            <NavItem id="settings" icon={Settings} label="Global Settings" hidden={!isAdmin} />
             <button 
               onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all font-medium"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500 hover:bg-red-50 transition-all font-bold text-sm"
             >
-              <LogOut size={20} />
+              <div className="p-2 rounded-xl"><LogOut size={18} /></div>
               <span>Logout</span>
             </button>
           </div>
         </div>
       </aside>
 
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="max-width-6xl mx-auto">
+      <main className="flex-1 p-6 md:p-10 overflow-y-auto">
+        <div className="max-w-6xl mx-auto">
           {activeTab === 'dashboard' && (
             <Dashboard 
               data={data} 
@@ -754,11 +671,7 @@ const App: React.FC = () => {
             />
           )}
           {activeTab === 'notifications' && isAdmin && (
-            <NotificationCenter 
-              notifications={data.notifications} 
-              onMarkRead={markAllNotificationsRead} 
-              onClear={clearNotifications} 
-            />
+            <NotificationCenter notifications={data.notifications} onMarkRead={markAllNotificationsRead} onClear={clearNotifications} />
           )}
           {activeTab === 'members' && isAdmin && (
             <MemberManager data={data} onAdd={addMember} onUpdate={updateMember} onDelete={deleteMember} onAdjustInterest={adjustInterestRate} />
@@ -773,180 +686,131 @@ const App: React.FC = () => {
             <LoansList data={data} />
           )}
           {activeTab === 'notes' && (
-            <MeetingNotes 
-              notes={data.meetingNotes} 
-              authUser={authUser} 
-              onAdd={addMeetingNote} 
-              onPublish={publishMeetingNote} 
-              onDelete={deleteMeetingNote} 
+            <MeetingNotes notes={data.meetingNotes} authUser={authUser} onAdd={addMeetingNote} onPublish={publishMeetingNote} onDelete={deleteMeetingNote} />
+          )}
+          {activeTab === 'expenses' && isAdmin && (
+            <ExpenseManager 
+              data={data}
+              onAddAdminPayment={addAdminPayment}
+              onAddMiscPayment={addMiscPayment}
             />
-          )}
-          {activeTab === 'admin-pays' && isAdmin && (
-            <AdminPaymentForm onAdd={addAdminPayment} />
-          )}
-          {activeTab === 'misc-pays' && isAdmin && (
-            <MiscPaymentForm onAdd={addMiscPayment} />
           )}
           {activeTab === 'summary' && <SummaryView data={data} authUser={authUser} />}
           {activeTab === 'report' && <MonthlyReport data={data} authUser={authUser} onBack={() => setActiveTab('dashboard')} />}
           {activeTab === 'settings' && isAdmin && (
-            <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-2 space-y-8">
-              <div className="bg-white rounded-3xl p-8 border shadow-sm">
-                <div className="flex items-center gap-3 mb-8">
-                  <div className="bg-slate-100 p-2.5 rounded-xl text-slate-600">
-                    <Settings size={28} />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-900">Global Financial Configuration</h2>
-                    <p className="text-sm text-slate-500">Define how the group manages loans and monthly savings.</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="space-y-6">
+            <div className="max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-4">
+               {/* Identity & Policy Card */}
+               <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-slate-100">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="bg-slate-100 p-3 rounded-2xl text-slate-900"><Settings size={28} /></div>
                     <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Group Name</label>
-                      <input 
-                        type="text" 
-                        value={data.settings.name} 
-                        onChange={(e) => updateSettings({...data.settings, name: e.target.value})} 
-                        className="w-full p-4 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-semibold" 
-                        placeholder="e.g. Unity Savings Group"
-                      />
+                      <h2 className="text-2xl font-extrabold text-slate-900">System Configuration</h2>
+                      <p className="text-slate-500 font-medium">Global rules for your micro-finance group.</p>
                     </div>
-                    
-                    <div className="bg-emerald-50/50 p-6 rounded-3xl border border-emerald-100">
-                      <label className="block text-sm font-black text-emerald-900 mb-2 flex items-center gap-2">
-                        <CalendarSearch size={18} />
-                        Monthly Loan Due Date
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600 font-bold">#</span>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          max="28"
-                          value={data.settings.dueDay} 
-                          onChange={(e) => updateSettings({...data.settings, dueDay: Number(e.target.value)})} 
-                          className="w-full p-4 pl-10 rounded-2xl border-2 border-emerald-100 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50 outline-none transition-all font-black text-2xl text-emerald-900" 
-                        />
-                      </div>
-                      <p className="mt-3 text-[11px] font-bold text-emerald-700 leading-tight">
-                        Payments made after the {data.settings.dueDay}th of every month will be flagged as LATE. This applies to both savings and loan interest.
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Global Savings Target (Default)</label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
-                        <input 
-                          type="number" 
-                          value={data.settings.monthlySavingsAmount} 
-                          onChange={(e) => updateSettings({...data.settings, monthlySavingsAmount: Number(e.target.value)})} 
-                          className="w-full p-4 pl-8 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-black text-xl" 
-                        />
-                      </div>
-                      <p className="mt-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider">Default amount used when no monthly override is set.</p>
-                    </div>
-                  </div>
-
-                  {/* Monthly Override Schedule */}
-                  <div className="bg-slate-50 rounded-[2.5rem] p-8 border border-slate-100 space-y-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Target size={20} className="text-emerald-600" />
-                      <h3 className="font-bold text-slate-900 text-lg">Monthly Schedule Overrides</h3>
-                    </div>
-                    
-                    <div className="space-y-4">
-                       <div className="flex flex-col sm:flex-row gap-2">
-                         <input 
-                           type="month" 
-                           className="flex-1 p-2 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-                           value={targetMonth}
-                           onChange={(e) => setTargetMonth(e.target.value)}
-                         />
-                         <div className="relative flex-1">
-                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-bold">₹</span>
-                           <input 
-                             type="number" 
-                             placeholder="Amount"
-                             className="w-full p-2 pl-5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
-                             value={targetAmount}
-                             onChange={(e) => setTargetAmount(Number(e.target.value))}
-                           />
-                         </div>
-                         <button 
-                           onClick={() => setMonthlySavingsTarget(targetMonth, targetAmount)}
-                           className="bg-slate-900 text-white p-2 rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center"
-                           title="Set Monthly Target"
-                         >
-                           <PlusCircle size={18} />
-                         </button>
-                       </div>
-
-                       <div className="mt-4 space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                         {Object.entries(data.monthlySavingsTargets || {}).length > 0 ? (
-                           Object.entries(data.monthlySavingsTargets || {}).sort((a,b) => b[0].localeCompare(a[0])).map(([m, val]) => (
-                             <div key={m} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 text-sm animate-in slide-in-from-top-1">
-                               <div>
-                                 <span className="font-black text-slate-400 text-[10px] uppercase tracking-tighter block leading-none">{new Date(m + "-01").toLocaleDateString(undefined, { year: 'numeric', month: 'short'})}</span>
-                                 <span className="font-bold text-slate-900">₹{val.toLocaleString()}</span>
-                               </div>
-                               <button 
-                                 onClick={() => removeMonthlySavingsTarget(m)}
-                                 className="text-slate-300 hover:text-red-500 transition-colors"
-                               >
-                                 <Trash2 size={14} />
-                               </button>
-                             </div>
-                           ))
-                         ) : (
-                           <p className="text-[10px] text-slate-400 italic text-center py-4">No monthly overrides set. Global default applies to all months.</p>
-                         )}
-                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Security Section */}
-              <div className="bg-white rounded-3xl p-8 border shadow-sm">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="bg-red-50 p-2.5 rounded-xl text-red-600">
-                    <Lock size={28} />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-black text-slate-900">Security & Access</h2>
-                    <p className="text-sm text-slate-500">Update your administrator login credentials.</p>
-                  </div>
-                </div>
-                
-                <div className="max-w-md space-y-6">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">New Administrator Password</label>
-                    <div className="relative group">
-                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-500 transition-colors" size={20} />
-                      <input 
-                        type="password" 
-                        className="w-full p-4 pl-12 rounded-2xl border-2 border-slate-100 focus:border-red-500 outline-none transition-all font-semibold" 
-                        placeholder="Enter new secure password"
-                        value={newAdminPass}
-                        onChange={(e) => setNewAdminPass(e.target.value)}
-                      />
-                    </div>
-                    <p className="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">Default is 'admin'. Choose something hard to guess.</p>
                   </div>
                   
-                  <button 
-                    onClick={handleUpdateAdminPassword}
-                    className="flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
-                  >
-                    <ShieldCheck size={20} />
-                    Update Administrator Password
-                  </button>
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                    <div className="space-y-6">
+                       <div>
+                          <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Group Identifier</label>
+                          <input 
+                            type="text" 
+                            className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-slate-50 outline-none transition-all font-bold"
+                            value={data.settings.name}
+                            onChange={(e) => updateSettings({...data.settings, name: e.target.value})}
+                          />
+                       </div>
+                       <div className="bg-emerald-50/50 p-6 rounded-[2rem] border border-emerald-100">
+                          <div className="flex items-center gap-2 mb-4">
+                            <CalendarSearch className="text-emerald-600" size={20} />
+                            <label className="text-sm font-black text-emerald-900 uppercase tracking-tighter">Collection Deadline</label>
+                          </div>
+                          <input 
+                            type="number" 
+                            className="w-full p-4 rounded-2xl border-2 border-emerald-100 focus:border-emerald-600 outline-none transition-all font-black text-3xl text-emerald-900 bg-white"
+                            value={data.settings.dueDay}
+                            onChange={(e) => updateSettings({...data.settings, dueDay: Number(e.target.value)})}
+                          />
+                          <p className="mt-3 text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Day of month due</p>
+                       </div>
+                    </div>
+
+                    <div className="bg-slate-50/50 rounded-[2rem] p-8 border border-slate-100">
+                       <div className="flex items-center gap-2 mb-6">
+                         <Target size={20} className="text-emerald-600" />
+                         <h3 className="font-extrabold text-slate-900">Schedule Overrides</h3>
+                       </div>
+                       <div className="flex gap-2 mb-4">
+                          <input type="month" className="flex-1 p-3 rounded-xl border border-slate-200 text-xs font-bold" value={targetMonth} onChange={(e) => setTargetMonth(e.target.value)} />
+                          <input type="number" className="w-24 p-3 rounded-xl border border-slate-200 text-xs font-bold" value={targetAmount} onChange={(e) => setTargetAmount(Number(e.target.value))} />
+                          <button onClick={() => setMonthlySavingsTarget(targetMonth, targetAmount)} className="bg-slate-900 text-white p-3 rounded-xl hover:bg-emerald-600 transition-all"><PlusCircle size={20}/></button>
+                       </div>
+                       <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 custom-scrollbar">
+                          {Object.entries(data.monthlySavingsTargets || {}).map(([m, v]) => (
+                            <div key={m} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-100 shadow-sm animate-in slide-in-from-top-1">
+                               <span className="font-black text-slate-400 text-[10px] uppercase">{m}</span>
+                               <span className="font-extrabold text-slate-900">₹{v}</span>
+                               <button onClick={() => removeMonthlySavingsTarget(m)} className="text-red-300 hover:text-red-500"><Trash2 size={14}/></button>
+                            </div>
+                          ))}
+                       </div>
+                    </div>
+                  </div>
+               </div>
+
+               {/* Access Security Card - ADDED SECTION */}
+               <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-emerald-100">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="bg-emerald-100 p-3 rounded-2xl text-emerald-900"><Lock size={28} /></div>
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-slate-900">Access & Security</h2>
+                      <p className="text-slate-500 font-medium">Manage administrative login credentials.</p>
+                    </div>
+                  </div>
+                  <div className="max-w-md space-y-6">
+                     <div>
+                        <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">New Admin Password</label>
+                        <div className="flex gap-3">
+                          <div className="relative flex-1 group">
+                            <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors" size={20} />
+                            <input 
+                              type="password" 
+                              placeholder="Minimum 4 characters"
+                              className="w-full p-4 pl-12 rounded-2xl border border-slate-100 bg-slate-50/50 focus:bg-white focus:ring-4 focus:ring-emerald-50 outline-none transition-all font-bold"
+                              value={newAdminPass}
+                              onChange={(e) => setNewAdminPass(e.target.value)}
+                            />
+                          </div>
+                          <button 
+                            onClick={handleUpdateAdminPassword}
+                            disabled={!newAdminPass.trim() || newAdminPass.length < 4}
+                            className="bg-slate-900 text-white px-6 py-4 rounded-2xl font-bold hover:bg-emerald-600 transition-all shadow-xl shadow-slate-100 active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                          >
+                            Update
+                          </button>
+                        </div>
+                        <p className="mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">This will change the password required for 'Administrator' login.</p>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Legacy Migration Card */}
+               <div className="bg-white rounded-[2.5rem] p-10 shadow-sm border border-amber-100">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="bg-amber-100 p-3 rounded-2xl text-amber-900"><Database size={28} /></div>
+                    <h2 className="text-2xl font-extrabold text-slate-900">Legacy Migration</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                     <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Base Growth Savings</label>
+                        <input type="number" className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50/50 font-black text-xl" value={data.settings.initialGrowthSavings} onChange={(e) => updateSettings({...data.settings, initialGrowthSavings: Number(e.target.value)})}/>
+                     </div>
+                     <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Base Net Cash</label>
+                        <input type="number" className="w-full p-4 rounded-2xl border border-slate-100 bg-slate-50/50 font-black text-xl" value={data.settings.initialNetFunds} onChange={(e) => updateSettings({...data.settings, initialNetFunds: Number(e.target.value)})}/>
+                     </div>
+                  </div>
+               </div>
             </div>
           )}
         </div>
