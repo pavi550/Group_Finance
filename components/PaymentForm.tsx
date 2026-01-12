@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
 import { Member, PaymentRecord, GroupSettings } from '../types';
-import { CheckCircle, Info, PiggyBank, ReceiptText, AlertTriangle, Landmark, CalendarClock } from 'lucide-react';
+import { CheckCircle, Info, PiggyBank, ReceiptText, AlertTriangle, Landmark, CalendarClock, Target } from 'lucide-react';
 
 interface PaymentFormProps {
   members: Member[];
   settings: GroupSettings;
+  monthlySavingsTargets: Record<string, number>;
   onAdd: (record: PaymentRecord) => void;
 }
 
-const PaymentForm: React.FC<PaymentFormProps> = ({ members, settings, onAdd }) => {
+const PaymentForm: React.FC<PaymentFormProps> = ({ members, settings, monthlySavingsTargets, onAdd }) => {
   const [selectedMemberId, setSelectedMemberId] = useState('');
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [savings, setSavings] = useState<number>(settings.monthlySavingsAmount);
@@ -20,20 +21,30 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ members, settings, onAdd }) =
 
   const selectedMember = members.find(m => m.id === selectedMemberId);
 
+  // Determine current savings target based on selected month
+  const currentTargetAmount = monthlySavingsTargets[month] !== undefined 
+    ? monthlySavingsTargets[month] 
+    : settings.monthlySavingsAmount;
+
   // Check if today is past the due date for the selected month
   const isLate = () => {
+    if (!selectedMember) return false;
+    
     const today = new Date();
     const currentMonthStr = today.toISOString().slice(0, 7);
     const dayOfMonth = today.getDate();
     
+    // Prioritize member-specific due day over group setting
+    const targetDueDay = selectedMember.dueDay || settings.dueDay;
+    
     // If we are recording for the current month and today's day is past the due day
-    return month === currentMonthStr && dayOfMonth > settings.dueDay;
+    return month === currentMonthStr && dayOfMonth > targetDueDay;
   };
 
   // When a member is selected, initialize the values based on their current profile
   useEffect(() => {
     if (selectedMember) {
-      setSavings(settings.monthlySavingsAmount);
+      setSavings(currentTargetAmount);
       setPrincipal(0);
       setPenalty(0);
       const calculatedInterest = (selectedMember.currentLoanPrincipal * selectedMember.loanInterestRate) / 100;
@@ -41,7 +52,14 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ members, settings, onAdd }) =
     } else {
       setInterest(0);
     }
-  }, [selectedMemberId, settings.monthlySavingsAmount, members]);
+  }, [selectedMemberId, members, month]); // Trigger when month changes too
+
+  // Also specifically update savings when month changes if a member is selected
+  useEffect(() => {
+    if (selectedMemberId) {
+       setSavings(currentTargetAmount);
+    }
+  }, [month]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +83,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ members, settings, onAdd }) =
       setPrincipal(0);
       setPenalty(0);
       setInterest(0);
-      setSavings(settings.monthlySavingsAmount);
+      setSavings(currentTargetAmount);
     }, 2000);
   };
 
@@ -106,16 +124,21 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ members, settings, onAdd }) =
                 value={month}
                 onChange={(e) => setMonth(e.target.value)}
               />
+              {monthlySavingsTargets[month] !== undefined && (
+                <p className="flex items-center gap-1.5 mt-1 text-[10px] font-black text-emerald-600 uppercase tracking-tighter">
+                  <Target size={12} />
+                  Custom target set for this month
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Fix: Replaced non-existent CalendarAlert with CalendarClock */}
-          {isLate() && (
+          {selectedMember && isLate() && (
             <div className="bg-red-50 border-2 border-red-200 p-4 rounded-2xl flex items-center gap-4 animate-pulse">
               <CalendarClock className="text-red-600 shrink-0" size={24} />
               <div>
                 <p className="text-sm font-black text-red-900 uppercase tracking-tighter">Late Payment Warning</p>
-                <p className="text-xs text-red-700 font-medium">Today is past the {settings.dueDay}th. Consider adding a penalty below.</p>
+                <p className="text-xs text-red-700 font-medium">Today is past the {selectedMember.dueDay || settings.dueDay}th. Consider adding a penalty below.</p>
               </div>
             </div>
           )}
@@ -125,7 +148,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ members, settings, onAdd }) =
               <PiggyBank className="text-emerald-600 shrink-0" size={20} />
               <div>
                 <p className="text-sm text-emerald-800 font-bold">Monthly Savings Contribution</p>
-                <p className="text-xs text-emerald-600 mt-0.5">Define the savings amount for this month.</p>
+                <p className="text-xs text-emerald-600 mt-0.5">Required savings for {new Date(month + "-01").toLocaleDateString(undefined, { month: 'long', year: 'numeric'})}.</p>
               </div>
             </div>
             <div className="relative">
@@ -195,7 +218,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ members, settings, onAdd }) =
               <div className="pt-6 border-t flex justify-between items-center">
                 <div>
                   <span className="block font-bold text-slate-500 text-xs uppercase tracking-widest">Total Collection</span>
-                  <p className="text-slate-400 text-[10px] font-medium italic">Monthly Due Date: {settings.dueDay}th</p>
+                  <p className="text-slate-400 text-[10px] font-medium italic">Member Due Date: {selectedMember.dueDay || settings.dueDay}th</p>
                 </div>
                 <span className="text-3xl font-black text-emerald-600">
                   ₹{(savings + principal + interest + penalty).toLocaleString()}

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Member, GroupData } from '../types';
-import { UserPlus, Search, Phone, Calendar, CreditCard, Trash2, Edit, FileText, X, Percent, CheckCircle, ShieldAlert, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { UserPlus, Search, Phone, Calendar, CreditCard, Trash2, Edit, FileText, X, Percent, CheckCircle, ShieldAlert, ArrowUpDown, ArrowUp, ArrowDown, CalendarClock } from 'lucide-react';
 import LoanLedger from './LoanLedger';
 
 interface MemberManagerProps {
@@ -24,8 +24,9 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
     name: '',
     phone: '',
     currentLoanPrincipal: 0,
-    loanInterestRate: 0,
-    loanCap: 50000
+    loanInterestRate: data.settings.defaultInterestRate, // Default to group setting
+    loanCap: 50000,
+    dueDay: undefined
   });
 
   const [adjustData, setAdjustData] = useState({
@@ -44,11 +45,12 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
         id: Math.random().toString(36).substr(2, 9),
         joiningDate: new Date().toISOString().split('T')[0],
         currentLoanPrincipal: 0,
-        loanInterestRate: 0,
-        loanCap: formData.loanCap || 50000
+        loanInterestRate: formData.loanInterestRate || data.settings.defaultInterestRate,
+        loanCap: formData.loanCap || 50000,
+        dueDay: formData.dueDay || undefined
       } as Member);
     }
-    setFormData({ name: '', phone: '', currentLoanPrincipal: 0, loanInterestRate: 0, loanCap: 50000 });
+    setFormData({ name: '', phone: '', currentLoanPrincipal: 0, loanInterestRate: data.settings.defaultInterestRate, loanCap: 50000, dueDay: undefined });
     setIsAdding(false);
   };
 
@@ -108,7 +110,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
         </div>
         <button 
           onClick={() => {
-            setFormData({ name: '', phone: '', currentLoanPrincipal: 0, loanInterestRate: 0, loanCap: 50000 });
+            setFormData({ name: '', phone: '', currentLoanPrincipal: 0, loanInterestRate: data.settings.defaultInterestRate, loanCap: 50000, dueDay: undefined });
             setIsAdding(true);
           }}
           className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl hover:bg-slate-800 transition-colors"
@@ -145,7 +147,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
                 </button>
               </th>
               <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Current Balance</th>
-              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Loan Cap</th>
+              <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Monthly Due</th>
               <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Interest</th>
               <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Actions</th>
             </tr>
@@ -170,9 +172,12 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                   <div className="flex items-center gap-1 text-slate-600 font-bold text-xs">
-                     <ShieldAlert size={12} className="text-slate-400" />
-                     ₹{member.loanCap.toLocaleString()}
+                   <div className="flex flex-col">
+                     <div className="flex items-center gap-1 text-slate-600 font-bold text-xs">
+                       <CalendarClock size={12} className={member.dueDay ? "text-emerald-500" : "text-slate-400"} />
+                       {member.dueDay || data.settings.dueDay}th
+                     </div>
+                     {member.dueDay && <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">Custom Set</span>}
                    </div>
                 </td>
                 <td className="px-6 py-4">
@@ -214,7 +219,7 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
       {/* Interest Adjust Modal */}
       {adjustingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-3xl w-full max-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="p-8 border-b bg-emerald-50">
               <div className="flex items-center gap-3 mb-2">
                 <div className="bg-emerald-600 p-2 rounded-xl text-white">
@@ -314,20 +319,34 @@ const MemberManager: React.FC<MemberManagerProps> = ({ data, onAdd, onUpdate, on
                     onChange={(e) => setFormData({...formData, phone: e.target.value.replace(/\D/g, '')})}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-1">Maximum Loan Cap (Limit)</label>
-                  <div className="relative">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Custom Due Day</label>
                     <input 
-                      required 
                       type="number" 
-                      placeholder="e.g. 50000"
-                      className="w-full p-3 pl-8 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
-                      value={formData.loanCap}
-                      onChange={(e) => setFormData({...formData, loanCap: Number(e.target.value)})}
+                      min="1"
+                      max="28"
+                      placeholder={`Default (${data.settings.dueDay}th)`}
+                      className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-bold"
+                      value={formData.dueDay || ''}
+                      onChange={(e) => setFormData({...formData, dueDay: e.target.value ? Number(e.target.value) : undefined})}
                     />
+                    <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold">Override group setting</p>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold">Prevents issuing loans exceeding this amount.</p>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1">Loan Cap</label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+                      <input 
+                        required 
+                        type="number" 
+                        placeholder="e.g. 50000"
+                        className="w-full p-3 pl-8 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-xs"
+                        value={formData.loanCap}
+                        onChange={(e) => setFormData({...formData, loanCap: Number(e.target.value)})}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
               <div className="flex gap-3 pt-4">

@@ -16,6 +16,7 @@ export interface Member {
   currentLoanPrincipal: number;
   loanInterestRate: number; // monthly %
   loanCap: number; // Maximum amount this member can borrow
+  dueDay?: number; // Optional custom due day (1-28) that overrides group settings
 }
 
 export interface PaymentRecord {
@@ -98,4 +99,5 @@ export interface GroupData {
   adminPayments: AdminPayment[];
   miscPayments: MiscellaneousPayment[];
   notifications: AppNotification[];
+  monthlySavingsTargets?: Record<string, number>; // Maps "YYYY-MM" to target amount
 }

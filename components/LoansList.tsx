@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { GroupData, Member } from '../types';
-import { HandCoins, ArrowUpDown, ArrowUp, ArrowDown, Search, UserCircle, Calendar, ShieldAlert, FileText, X } from 'lucide-react';
+import { HandCoins, ArrowUpDown, ArrowUp, ArrowDown, Search, UserCircle, Calendar, ShieldAlert, FileText, X, FilterX } from 'lucide-react';
 import LoanLedger from './LoanLedger';
 
 interface LoansListProps {
@@ -13,6 +13,8 @@ type SortDir = 'asc' | 'desc';
 
 const LoansList: React.FC<LoansListProps> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [sortField, setSortField] = useState<SortField>('amount');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [selectedLedgerMember, setSelectedLedgerMember] = useState<Member | null>(null);
@@ -33,10 +35,23 @@ const LoansList: React.FC<LoansListProps> = ({ data }) => {
       });
   }, [data.members, data.loansIssued]);
 
-  const sortedLoans = useMemo(() => {
+  const filteredAndSortedLoans = useMemo(() => {
     let result = activeLoans.filter(l => 
       l.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    // Apply Date Range Filter
+    if (startDate) {
+      const start = new Date(startDate).getTime();
+      result = result.filter(l => new Date(l.disbursementDate).getTime() >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate).getTime();
+      // Set to end of day
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      result = result.filter(l => new Date(l.disbursementDate).getTime() <= endOfDay.getTime());
+    }
 
     result.sort((a, b) => {
       let comparison = 0;
@@ -51,7 +66,7 @@ const LoansList: React.FC<LoansListProps> = ({ data }) => {
     });
 
     return result;
-  }, [activeLoans, searchTerm, sortField, sortDir]);
+  }, [activeLoans, searchTerm, startDate, endDate, sortField, sortDir]);
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) {
@@ -60,6 +75,12 @@ const LoansList: React.FC<LoansListProps> = ({ data }) => {
       setSortField(field);
       setSortDir('desc');
     }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStartDate('');
+    setEndDate('');
   };
 
   const SortButton = ({ field, label }: { field: SortField, label: string }) => (
@@ -76,6 +97,8 @@ const LoansList: React.FC<LoansListProps> = ({ data }) => {
     </button>
   );
 
+  const isFiltered = searchTerm || startDate || endDate;
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -85,20 +108,58 @@ const LoansList: React.FC<LoansListProps> = ({ data }) => {
         </div>
         <div className="flex items-center gap-4">
            <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-2xl border border-emerald-100 font-black text-sm">
-             Total Outstanding: ₹{activeLoans.reduce((acc, l) => acc + l.currentLoanPrincipal, 0).toLocaleString()}
+             Displayed: ₹{filteredAndSortedLoans.reduce((acc, l) => acc + l.currentLoanPrincipal, 0).toLocaleString()}
            </div>
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-        <input 
-          type="text" 
-          placeholder="Search by member name..." 
-          className="w-full pl-12 pr-4 py-4 bg-white border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm transition-all"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="bg-white p-6 rounded-[2rem] border shadow-sm space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="md:col-span-2 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search by member name..." 
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="relative">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+            <input 
+              type="date" 
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium text-sm cursor-pointer"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              title="Issued From"
+            />
+            <span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-black text-slate-400 uppercase pointer-events-none">From</span>
+          </div>
+          <div className="relative">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
+            <input 
+              type="date" 
+              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500 transition-all font-medium text-sm cursor-pointer"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              title="Issued To"
+            />
+            <span className="absolute -top-2 left-3 bg-white px-1 text-[10px] font-black text-slate-400 uppercase pointer-events-none">To</span>
+          </div>
+        </div>
+
+        {isFiltered && (
+          <div className="flex justify-end">
+            <button 
+              onClick={clearFilters}
+              className="flex items-center gap-2 text-xs font-black text-red-500 uppercase tracking-widest hover:bg-red-50 px-3 py-1.5 rounded-lg transition-all"
+            >
+              <FilterX size={14} />
+              Clear all filters
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded-[2rem] border overflow-hidden shadow-sm">
@@ -123,8 +184,7 @@ const LoansList: React.FC<LoansListProps> = ({ data }) => {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {sortedLoans.map(member => {
-              const utilPercent = (member.currentLoanPrincipal / member.loanCap) * 100;
+            {filteredAndSortedLoans.map(member => {
               return (
                 <tr key={member.id} className="hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-5">
@@ -172,7 +232,7 @@ const LoansList: React.FC<LoansListProps> = ({ data }) => {
                 </tr>
               );
             })}
-            {sortedLoans.length === 0 && (
+            {filteredAndSortedLoans.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-6 py-20 text-center">
                   <div className="flex flex-col items-center gap-3">
@@ -180,8 +240,12 @@ const LoansList: React.FC<LoansListProps> = ({ data }) => {
                       <HandCoins size={48} />
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-slate-400">No active loans found.</h3>
-                      <p className="text-sm text-slate-300">Start by issuing a new loan to a member.</p>
+                      <h3 className="text-lg font-bold text-slate-400">
+                        {isFiltered ? "No loans found for these criteria." : "No active loans found."}
+                      </h3>
+                      <p className="text-sm text-slate-300">
+                        {isFiltered ? "Try adjusting your search or date filters." : "Start by issuing a new loan to a member."}
+                      </p>
                     </div>
                   </div>
                 </td>

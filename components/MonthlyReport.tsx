@@ -41,10 +41,14 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ data, authUser, onBack })
     const expenseSum = adminPays.reduce((a, b) => a + b.amount, 0) + miscPays.reduce((a, b) => a + b.amount, 0);
 
     // Outstanding Dues Analysis
+    const monthSavingsTarget = (data.monthlySavingsTargets && data.monthlySavingsTargets[selectedMonth] !== undefined)
+      ? data.monthlySavingsTargets[selectedMonth]
+      : data.settings.monthlySavingsAmount;
+
     const dues = data.members.map(member => {
       const record = records.find(r => r.memberId === member.id);
       const isPaid = !!record;
-      const savingsDue = isPaid ? 0 : data.settings.monthlySavingsAmount;
+      const savingsDue = isPaid ? 0 : monthSavingsTarget;
       const interestDue = isPaid ? 0 : (member.currentLoanPrincipal * member.loanInterestRate) / 100;
       const totalDue = savingsDue + interestDue;
 

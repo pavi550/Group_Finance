@@ -92,21 +92,21 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
   const paymentAlerts = useMemo(() => {
     const currentMonth = new Date().toISOString().slice(0, 7);
     const currentDay = new Date().getDate();
-    const dueDay = data.settings.dueDay || 10;
     
     return data.members.map(member => {
       const hasPaidThisMonth = data.records.some(r => r.memberId === member.id && r.month === currentMonth);
       const isLoanActive = member.currentLoanPrincipal > 0;
+      const targetDueDay = member.dueDay || data.settings.dueDay;
       
       let status: 'PAID' | 'PENDING' | 'OVERDUE' | 'NONE' = 'NONE';
       
       if (hasPaidThisMonth) {
         status = 'PAID';
       } else if (isLoanActive || data.settings.monthlySavingsAmount > 0) {
-        status = currentDay > dueDay ? 'OVERDUE' : 'PENDING';
+        status = currentDay > targetDueDay ? 'OVERDUE' : 'PENDING';
       }
       
-      return { member, status };
+      return { member, status, dueDay: targetDueDay };
     }).filter(alert => alert.status !== 'NONE' && (isAdmin || alert.member.id === authUser.memberId));
   }, [data, authUser, isAdmin]);
 
@@ -274,7 +274,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
             <Clock size={20} className="text-blue-500" />
             <h3 className="font-bold text-lg">Current Month Activity Alerts</h3>
           </div>
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Due Day: {data.settings.dueDay}th</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tracking Deadlines</span>
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -299,7 +299,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, authUser, onOpenReport, onU
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-bold text-slate-400 block uppercase">Expected</span>
-                  <span className="text-sm font-black text-slate-900 italic">By {data.settings.dueDay}th</span>
+                  <span className="text-sm font-black text-slate-900 italic">By {alert.dueDay}th</span>
                 </div>
               </div>
             ))

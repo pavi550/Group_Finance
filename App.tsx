@@ -25,7 +25,6 @@ import {
   ShieldCheck,
   User as UserIcon,
   HandCoins,
-  UserCog,
   Receipt,
   Info,
   CalendarDays,
@@ -44,7 +43,11 @@ import {
   Bell,
   Lock,
   Eye,
-  EyeOff
+  EyeOff,
+  Target,
+  PlusCircle,
+  Trash2,
+  UserCog
 } from 'lucide-react';
 
 const STORAGE_KEY = 'group_finance_data_v1';
@@ -54,22 +57,23 @@ const INITIAL_DATA: GroupData = {
   settings: {
     name: 'Unity Savings Group',
     monthlySavingsAmount: 1000,
-    defaultInterestRate: 2,
+    defaultInterestRate: 12, // Updated from 2 to 12
     dueDay: 10
   },
   members: [
-    { id: '1', name: 'John Doe', phone: '9876543210', joiningDate: '2023-01-01', currentLoanPrincipal: 0, loanInterestRate: 2, loanCap: 50000 },
-    { id: '2', name: 'Jane Smith', phone: '9988776655', joiningDate: '2023-01-15', currentLoanPrincipal: 5000, loanInterestRate: 2, loanCap: 25000 }
+    { id: '1', name: 'John Doe', phone: '9876543210', joiningDate: '2023-01-01', currentLoanPrincipal: 0, loanInterestRate: 12, loanCap: 50000 },
+    { id: '2', name: 'Jane Smith', phone: '9988776655', joiningDate: '2023-01-15', currentLoanPrincipal: 5000, loanInterestRate: 12, loanCap: 25000 }
   ],
   records: [],
   loansIssued: [
-    { id: 'init-1', memberId: '2', amount: 5000, interestRate: 2, date: '2023-11-01' }
+    { id: 'init-1', memberId: '2', amount: 5000, interestRate: 12, date: '2023-11-01' }
   ],
   interestRateChanges: [],
   meetingNotes: [],
   adminPayments: [],
   miscPayments: [],
-  notifications: []
+  notifications: [],
+  monthlySavingsTargets: {}
 };
 
 const App: React.FC = () => {
@@ -83,6 +87,7 @@ const App: React.FC = () => {
     if (!parsed.adminPayments) parsed.adminPayments = [];
     if (!parsed.miscPayments) parsed.miscPayments = [];
     if (!parsed.notifications) parsed.notifications = [];
+    if (!parsed.monthlySavingsTargets) parsed.monthlySavingsTargets = {};
     if (parsed.settings && parsed.settings.dueDay === undefined) parsed.settings.dueDay = 10;
     
     // Member migration: ensure every member has a loanCap
@@ -117,6 +122,10 @@ const App: React.FC = () => {
 
   // Password Change State
   const [newAdminPass, setNewAdminPass] = useState('');
+
+  // Monthly Target Schedule States
+  const [targetMonth, setTargetMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [targetAmount, setTargetAmount] = useState<number>(data.settings.monthlySavingsAmount);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'payments' | 'loans' | 'loans-list' | 'admin-pays' | 'misc-pays' | 'summary' | 'notes' | 'settings' | 'report' | 'notifications'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -229,6 +238,26 @@ const App: React.FC = () => {
     updateSettings({ ...data.settings, adminPassword: newAdminPass.trim() });
     setNewAdminPass('');
     alert("Administrator password updated successfully. Please remember it for your next login.");
+  };
+
+  const setMonthlySavingsTarget = (month: string, amount: number) => {
+    if (authUser?.role !== 'ADMIN') return;
+    setData(prev => ({
+      ...prev,
+      monthlySavingsTargets: {
+        ...prev.monthlySavingsTargets,
+        [month]: amount
+      }
+    }));
+  };
+
+  const removeMonthlySavingsTarget = (month: string) => {
+    if (authUser?.role !== 'ADMIN') return;
+    setData(prev => {
+      const newTargets = { ...prev.monthlySavingsTargets };
+      delete newTargets[month];
+      return { ...prev, monthlySavingsTargets: newTargets };
+    });
   };
 
   const addMember = (member: Member) => {
@@ -714,7 +743,7 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-width-6xl mx-auto">
           {activeTab === 'dashboard' && (
             <Dashboard 
               data={data} 
@@ -735,7 +764,7 @@ const App: React.FC = () => {
             <MemberManager data={data} onAdd={addMember} onUpdate={updateMember} onDelete={deleteMember} onAdjustInterest={adjustInterestRate} />
           )}
           {activeTab === 'payments' && isAdmin && (
-            <PaymentForm members={data.members} settings={data.settings} onAdd={addRecord} />
+            <PaymentForm members={data.members} settings={data.settings} monthlySavingsTargets={data.monthlySavingsTargets || {}} onAdd={addRecord} />
           )}
           {activeTab === 'loans' && isAdmin && (
             <LoanIssueForm members={data.members} settings={data.settings} onIssue={issueLoan} />
@@ -808,7 +837,7 @@ const App: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-bold text-slate-700 mb-2">Monthly Savings Target</label>
+                      <label className="block text-sm font-bold text-slate-700 mb-2">Global Savings Target (Default)</label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
                         <input 
@@ -818,33 +847,64 @@ const App: React.FC = () => {
                           className="w-full p-4 pl-8 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none transition-all font-black text-xl" 
                         />
                       </div>
+                      <p className="mt-1 text-[10px] text-slate-400 font-bold uppercase tracking-wider">Default amount used when no monthly override is set.</p>
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 rounded-[2.5rem] p-8 border border-slate-100 space-y-5">
-                    <h3 className="font-bold text-slate-900 text-lg">System Behavior Policy</h3>
+                  {/* Monthly Override Schedule */}
+                  <div className="bg-slate-50 rounded-[2.5rem] p-8 border border-slate-100 space-y-6">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target size={20} className="text-emerald-600" />
+                      <h3 className="font-bold text-slate-900 text-lg">Monthly Schedule Overrides</h3>
+                    </div>
+                    
                     <div className="space-y-4">
-                      <div className="flex gap-4">
-                        <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-lg shadow-emerald-200">1</div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">Fixed Monthly Cycle</p>
-                          <p className="text-xs text-slate-500 mt-0.5">Regardless of when a loan is issued, interest and principal collections always fall on the {data.settings.dueDay}th.</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-lg shadow-blue-200">2</div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">Dynamic Adjustments</p>
-                          <p className="text-xs text-slate-500 mt-0.5">Admin can change contribution amounts at any time; changes reflect in future entries.</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="w-8 h-8 rounded-xl bg-amber-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-lg shadow-amber-200">3</div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-800">Manual Interest Control</p>
-                          <p className="text-xs text-slate-500 mt-0.5">While the system calculates interest based on the monthly rate, the Admin can override it during collection.</p>
-                        </div>
-                      </div>
+                       <div className="flex flex-col sm:flex-row gap-2">
+                         <input 
+                           type="month" 
+                           className="flex-1 p-2 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                           value={targetMonth}
+                           onChange={(e) => setTargetMonth(e.target.value)}
+                         />
+                         <div className="relative flex-1">
+                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-bold">₹</span>
+                           <input 
+                             type="number" 
+                             placeholder="Amount"
+                             className="w-full p-2 pl-5 rounded-xl border border-slate-200 text-xs font-bold outline-none focus:ring-2 focus:ring-emerald-500"
+                             value={targetAmount}
+                             onChange={(e) => setTargetAmount(Number(e.target.value))}
+                           />
+                         </div>
+                         <button 
+                           onClick={() => setMonthlySavingsTarget(targetMonth, targetAmount)}
+                           className="bg-slate-900 text-white p-2 rounded-xl hover:bg-emerald-600 transition-all flex items-center justify-center"
+                           title="Set Monthly Target"
+                         >
+                           <PlusCircle size={18} />
+                         </button>
+                       </div>
+
+                       <div className="mt-4 space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                         {Object.entries(data.monthlySavingsTargets || {}).length > 0 ? (
+                           Object.entries(data.monthlySavingsTargets || {}).sort((a,b) => b[0].localeCompare(a[0])).map(([m, val]) => (
+                             <div key={m} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 text-sm animate-in slide-in-from-top-1">
+                               <div>
+                                 <span className="font-black text-slate-400 text-[10px] uppercase tracking-tighter block leading-none">{new Date(m + "-01").toLocaleDateString(undefined, { year: 'numeric', month: 'short'})}</span>
+                                 <span className="font-bold text-slate-900">₹{val.toLocaleString()}</span>
+                               </div>
+                               <button 
+                                 onClick={() => removeMonthlySavingsTarget(m)}
+                                 className="text-slate-300 hover:text-red-500 transition-colors"
+                               >
+                                 <Trash2 size={14} />
+                               </button>
+                             </div>
+                           ))
+                         ) : (
+                           <p className="text-[10px] text-slate-400 italic text-center py-4">No monthly overrides set. Global default applies to all months.</p>
+                         )}
+                       </div>
                     </div>
                   </div>
                 </div>
