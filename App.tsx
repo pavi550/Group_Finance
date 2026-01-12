@@ -41,7 +41,10 @@ import {
   Home,
   RotateCcw,
   ListFilter,
-  Bell
+  Bell,
+  Lock,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const STORAGE_KEY = 'group_finance_data_v1';
@@ -100,12 +103,20 @@ const App: React.FC = () => {
 
   // Login States
   const [loginPhone, setLoginPhone] = useState('');
-  const [loginStep, setLoginStep] = useState<'PHONE' | 'OTP'>('PHONE');
+  const [loginStep, setLoginStep] = useState<'PHONE' | 'OTP' | 'ADMIN_LOGIN'>('PHONE');
   const [otpValue, setOtpValue] = useState('');
   const [generatedOtp, setGeneratedOtp] = useState('');
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(0);
+
+  // Admin Login States
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [showAdminPass, setShowAdminPass] = useState(false);
+
+  // Password Change State
+  const [newAdminPass, setNewAdminPass] = useState('');
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'members' | 'payments' | 'loans' | 'loans-list' | 'admin-pays' | 'misc-pays' | 'summary' | 'notes' | 'settings' | 'report' | 'notifications'>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -139,6 +150,8 @@ const App: React.FC = () => {
     setAuthUser(null);
     setLoginPhone('');
     setOtpValue('');
+    setAdminUsername('');
+    setAdminPassword('');
     setLoginStep('PHONE');
     setLoginError(null);
     setResendTimer(0);
@@ -191,9 +204,31 @@ const App: React.FC = () => {
     }
   };
 
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+
+    const savedPass = data.settings.adminPassword || 'admin';
+    if (adminUsername === 'admin' && adminPassword === savedPass) {
+      setAuthUser({ id: 'admin-0', name: 'Administrator', role: 'ADMIN' });
+    } else {
+      setLoginError('Invalid administrator credentials.');
+    }
+  };
+
   const updateSettings = (settings: GroupSettings) => {
     if (authUser?.role !== 'ADMIN') return;
     setData(prev => ({ ...prev, settings }));
+  };
+
+  const handleUpdateAdminPassword = () => {
+    if (!newAdminPass.trim() || newAdminPass.length < 4) {
+      alert("Password must be at least 4 characters long.");
+      return;
+    }
+    updateSettings({ ...data.settings, adminPassword: newAdminPass.trim() });
+    setNewAdminPass('');
+    alert("Administrator password updated successfully. Please remember it for your next login.");
   };
 
   const addMember = (member: Member) => {
@@ -359,12 +394,11 @@ const App: React.FC = () => {
 
   // Auth Screen
   if (!authUser) {
-    // ... (Login UI remains same)
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="bg-white rounded-[2.5rem] p-10 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-300 overflow-hidden relative">
           
-          {loginStep === 'PHONE' ? (
+          {loginStep === 'PHONE' && (
             <div className="animate-in slide-in-from-left-4 duration-300">
               <div className="text-center mb-10">
                 <div className="bg-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-900/20">
@@ -421,19 +455,21 @@ const App: React.FC = () => {
               </div>
 
               <button 
-                onClick={() => setAuthUser({ id: 'admin-0', name: 'Administrator', role: 'ADMIN' })}
+                onClick={() => setLoginStep('ADMIN_LOGIN')}
                 className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-slate-100 hover:border-emerald-600 hover:bg-emerald-50 transition-all group"
               >
                 <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
                   <ShieldCheck size={24} />
                 </div>
                 <div className="text-left">
-                  <p className="font-bold text-slate-900">Administrator Access</p>
-                  <p className="text-xs text-slate-400 font-medium">Control group settings & collections</p>
+                  <p className="font-bold text-slate-900">Administrator Login</p>
+                  <p className="text-xs text-slate-400 font-medium">Secure access with credentials</p>
                 </div>
               </button>
             </div>
-          ) : (
+          )}
+
+          {loginStep === 'OTP' && (
             <div className="animate-in slide-in-from-right-4 duration-300">
               <button 
                 onClick={() => setLoginStep('PHONE')}
@@ -503,6 +539,82 @@ const App: React.FC = () => {
                     </button>
                   )}
                 </div>
+              </form>
+            </div>
+          )}
+
+          {loginStep === 'ADMIN_LOGIN' && (
+            <div className="animate-in slide-in-from-bottom-4 duration-300">
+              <button 
+                onClick={() => setLoginStep('PHONE')}
+                className="mb-6 flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold text-sm transition-colors"
+              >
+                <ArrowLeft size={16} />
+                Back to Mobile
+              </button>
+
+              <div className="text-center mb-10">
+                <div className="bg-slate-900 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl shadow-slate-900/20">
+                  <Lock className="text-white" size={32} />
+                </div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Admin Authentication</h1>
+                <p className="text-slate-500 font-medium mt-1">Enter your credentials to manage the group</p>
+              </div>
+
+              <form onSubmit={handleAdminLogin} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Username</label>
+                  <div className="relative group">
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-900 transition-colors" size={20} />
+                    <input 
+                      type="text"
+                      placeholder="Enter admin username"
+                      className="w-full p-4 pl-12 rounded-2xl border-2 border-slate-100 focus:border-slate-900 outline-none transition-all font-semibold"
+                      value={adminUsername}
+                      onChange={(e) => setAdminUsername(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Password</label>
+                  <div className="relative group">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-slate-900 transition-colors" size={20} />
+                    <input 
+                      type={showAdminPass ? "text" : "password"}
+                      placeholder="Enter admin password"
+                      className="w-full p-4 pl-12 rounded-2xl border-2 border-slate-100 focus:border-slate-900 outline-none transition-all font-semibold"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => setShowAdminPass(!showAdminPass)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      {showAdminPass ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                  {loginError && (
+                    <div className="mt-3 flex items-center gap-2 text-red-500 text-xs font-bold animate-in slide-in-from-top-1">
+                      <AlertCircle size={14} />
+                      {loginError}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Standard Credentials</p>
+                  <p className="text-xs font-bold text-slate-600">User: <span className="text-slate-900">admin</span> | Pass: <span className="text-slate-900">admin</span></p>
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="w-full flex items-center justify-center gap-2 p-5 rounded-2xl bg-slate-900 text-white hover:bg-black transition-all shadow-xl shadow-slate-900/10 font-black"
+                >
+                  Verify Credentials
+                  <ShieldCheck size={20} />
+                </button>
               </form>
             </div>
           )}
@@ -649,8 +761,7 @@ const App: React.FC = () => {
           {activeTab === 'summary' && <SummaryView data={data} authUser={authUser} />}
           {activeTab === 'report' && <MonthlyReport data={data} authUser={authUser} onBack={() => setActiveTab('dashboard')} />}
           {activeTab === 'settings' && isAdmin && (
-            // ... (Settings UI remains same)
-            <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-2">
+            <div className="max-w-3xl animate-in fade-in slide-in-from-bottom-2 space-y-8">
               <div className="bg-white rounded-3xl p-8 border shadow-sm">
                 <div className="flex items-center gap-3 mb-8">
                   <div className="bg-slate-100 p-2.5 rounded-xl text-slate-600">
@@ -736,6 +847,44 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Security Section */}
+              <div className="bg-white rounded-3xl p-8 border shadow-sm">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-red-50 p-2.5 rounded-xl text-red-600">
+                    <Lock size={28} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-black text-slate-900">Security & Access</h2>
+                    <p className="text-sm text-slate-500">Update your administrator login credentials.</p>
+                  </div>
+                </div>
+                
+                <div className="max-w-md space-y-6">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">New Administrator Password</label>
+                    <div className="relative group">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-red-500 transition-colors" size={20} />
+                      <input 
+                        type="password" 
+                        className="w-full p-4 pl-12 rounded-2xl border-2 border-slate-100 focus:border-red-500 outline-none transition-all font-semibold" 
+                        placeholder="Enter new secure password"
+                        value={newAdminPass}
+                        onChange={(e) => setNewAdminPass(e.target.value)}
+                      />
+                    </div>
+                    <p className="mt-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider">Default is 'admin'. Choose something hard to guess.</p>
+                  </div>
+                  
+                  <button 
+                    onClick={handleUpdateAdminPassword}
+                    className="flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-2xl font-black hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10"
+                  >
+                    <ShieldCheck size={20} />
+                    Update Administrator Password
+                  </button>
                 </div>
               </div>
             </div>

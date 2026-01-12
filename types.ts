@@ -85,6 +85,7 @@ export interface GroupSettings {
   monthlySavingsAmount: number;
   defaultInterestRate: number;
   dueDay: number; // Day of month when payment is due (1-28)
+  adminPassword?: string; // New field for custom admin password
 }
 
 export interface GroupData {
